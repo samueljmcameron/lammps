@@ -1,7 +1,7 @@
-# 2d Quincke model
+# 2d Active Brownian Particle model
 log             log_${fp}_${rho}
 units           lj
-atom_style      hybrid dipole sphere
+atom_style      dipole
 dimension       2
 newton off
 

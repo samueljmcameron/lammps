@@ -146,7 +146,10 @@ void PairActivity::compute(int eflag, int vflag)
     */
   }
 
-  if (vflag_fdotr) virial_fdotr_compute();
+  if (vflag_fdotr) {
+    std::cout << "vflag_fdotr = " << vflag_fdotr << std::endl;
+    virial_fdotr_compute();
+  }
 }
 
 /* ----------------------------------------------------------------------

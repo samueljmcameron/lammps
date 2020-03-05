@@ -125,22 +125,21 @@ void FixBDEuler::initial_integrate(int vflag)
   // set square root of temperature
   compute_target();
 
-  //printf ("\n\n\n");
+
   for (int i = 0; i < nlocal; i++)
-    if (mask[i] & groupbit) {      
+    if (mask[i] & groupbit) {            
 
-      //printf("%d: (%.18f %.8f %.8f) (%.8f %.8f %.8f) \n",i , x[i][0], x[i][1], x[i][2],  mu[i][0], mu[i][1], mu[i][2] );
-      
-
-      da = dt * gamma1 * f[i][0] / t_target   +    sqrtdt * gamma2 * (random->uniform()-0.5);
+      da = (dt * gamma1 * f[i][0] / t_target
+	    +    sqrtdt * gamma2 * (random->uniform()-0.5));
       double dx = da;
       x[i][0] +=  da;
       v[i][0]  =  da/dt;
-      da = dt * gamma1 * f[i][1] / t_target   +    sqrtdt * gamma2 * (random->uniform()-0.5);
+      da = (dt * gamma1 * f[i][1] / t_target
+	    +    sqrtdt * gamma2 * (random->uniform()-0.5));
       x[i][1] +=  da;
       double dy = da;
       v[i][1]  =  da/dt;
-      //printf("   (%.18f %.8f %.8f) (%.8f %.8f %.8f) \n", x[i][0], x[i][1], x[i][2],  mu[i][0], mu[i][1], mu[i][2] );
+
 
       dar   =   sqrtdt * gamma3 * (random->uniform()-0.5);
       da    =   dt * gamma4 * torque[i][2] / t_target + dar;
@@ -149,24 +148,9 @@ void FixBDEuler::initial_integrate(int vflag)
       omega[i][2] = da/dt; 
 
 
-      //printf("%d: x=(%f %f %f) mu=(%f %f %f) torque=(%f %f %f) f=(%f %f %f) \n",i , x[i][0], x[i][1], x[i][2],  mu[i][0], mu[i][1], mu[i][2] , torque[i][0], torque[i][1], torque[i][2], f[i][0], f[i][1], f[i][2]);
-      //printf("      da_r=%f, da_torque=%f, d_theta=%f, theta=%f\n\n", dar/3.1415*180, (da-dar)/3.1415*180, da/3.1415*180, atan2(mu[i][1], mu[i][0])/3.1415*180 );
-
-      //printf("d_theta=%.8f, cos=%.8f, sin=%.8f\n", da/3.1415*180, cosda, sinda );
-
-      //printf("%d: dx=(%g %g) v=(%g %g) dtheta=%g  omega=%g \n",i, dx,dy, v[i][0],v[i][1], da, omega[i][2] );
-
       da = mu[i][0];
       mu[i][0] =  mu[i][0]*cosda - mu[i][1]*sinda;
       mu[i][1] =  sinda * da     + mu[i][1]*cosda;
-      //printf("   (%.18f %.8f %.8f) (%.8f %.8f %.8f) \n", x[i][0], x[i][1], x[i][2],  mu[i][0], mu[i][1], mu[i][2] );
-      //printf("   dipole_squered = %.8f \n\n", mu[i][0]*mu[i][0] + mu[i][1]*mu[i][1]);
-
-      //torque[i][2] = 0.0;
-      //torque[i][1] = 0.0;
-
-
-
 
     }
 
