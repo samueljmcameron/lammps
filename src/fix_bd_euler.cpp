@@ -107,15 +107,15 @@ void FixBDEuler::compute_target()
 
 void FixBDEuler::initial_integrate(int vflag)
 {
-  int *ellipsoid = atom->ellipsoid;
+  //int *ellipsoid = atom->ellipsoid;
   double **x = atom->x;
   double **v = atom->v;
   double **mu = atom->mu;
   double **f = atom->f;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  double **torque = atom->torque;
-  double **omega = atom->omega;
+  //  double **torque = atom->torque;
+  //double **omega = atom->omega;
 
 
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
@@ -143,11 +143,11 @@ void FixBDEuler::initial_integrate(int vflag)
       v[i][1]  =  da/dt;
 
 
-      dar   =   sqrtdt * gamma3 * (random->uniform()-0.5);
-      da    =   dt * gamma4 * torque[i][2] / t_target + dar;
+      da   =   sqrtdt * gamma3 * (random->uniform()-0.5);
+      //      da    =   dt * gamma4 * torque[i][2] / t_target + dar;
       cosda = cos(da);
       sinda = sin(da);
-      omega[i][2] = da/dt; 
+      //omega[i][2] = da/dt; 
 
 
       da = mu[i][0];

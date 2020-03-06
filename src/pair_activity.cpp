@@ -75,7 +75,7 @@ void PairActivity::compute(int eflag, int vflag)
 
   double **x = atom->x;
   double **f = atom->f;
-  double **torque = atom->torque;
+  //double **torque = atom->torque;
   double **mu = atom->mu;
 
   int *type = atom->type;
@@ -88,10 +88,9 @@ void PairActivity::compute(int eflag, int vflag)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
 
-
-
   // loop over neighbors of my atoms 
   for (ii = 0; ii < inum; ii++) {
+
     i = ilist[ii];
     xtmp = x[i][0];
     ytmp = x[i][1];
@@ -146,8 +145,9 @@ void PairActivity::compute(int eflag, int vflag)
     */
   }
 
+
   if (vflag_fdotr) {
-    std::cout << "vflag_fdotr = " << vflag_fdotr << std::endl;
+    //std::cout << "vflag_fdotr = " << vflag_fdotr << std::endl;
     virial_fdotr_compute();
   }
 }
