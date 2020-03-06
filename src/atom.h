@@ -51,7 +51,19 @@ class Atom : protected Pointers {
 
   // per-atom arrays
   // customize by adding new array
+  // all of this stuff is assigned in the atom_vec_*.cpp files, where
+  // * could be e.g. sphere, atomic, etc.
 
+  // these arrays go from 0 to nlocal, where nlocal is the number of
+  // atoms owned by this proc
+
+  // for the following descriptions, i will be the current atom being created
+  // type[i] is an integer equal to the atom type if the atom is in the proc
+  // mask[i] = 1 << i, where i goes from 0 to 32, if the atom is in the proc
+  // not sure what *image is, something to do with communication between proc?
+  // x[i][:] are the (global) coordinates of the atom
+  // v[i][:] are the velocities of the atom
+  // f[i][:] are the forces of the atom
   tagint *tag;
   int *type,*mask;
   imageint *image;
@@ -60,6 +72,11 @@ class Atom : protected Pointers {
   tagint *molecule;
   int *molindex,*molatom;
 
+  // radius[i] = radius of the particle
+  // rmass[i] = mass of particle, with rmass[i] = 4*pi/3*radius[i]**3*density,
+  // and density is the mass density within the particle (NOT the density of
+  // particles in the system).
+  
   double *q,**mu;
   double **omega,**angmom,**torque;
   double *radius,*rmass;

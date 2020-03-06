@@ -214,6 +214,7 @@ void PairActivity::coeff(int narg, char **arg)
   if (narg >= 3) cut_one = force->numeric(FLERR,arg[2]);
 
 
+
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
     for (int j = MAX(jlo,i); j <= jhi; j++) {

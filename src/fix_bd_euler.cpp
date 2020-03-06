@@ -12,7 +12,9 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Oliver Henrich (University of Strathclyde, Glasgow)
+   Originally modified from USER-CGDNA/fix_nve_dotc_langevin.cpp. 
+
+   Contributing author: Majid Moseyabi (University of Bristol)
 ------------------------------------------------------------------------- */
 
 #include <math.h>
