@@ -20,7 +20,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include "fix_bd_euler.h"
+#include "fix_bd_activity.h"
 #include "math_extra.h"
 #include "atom.h"
 #include "force.h"
@@ -36,7 +36,7 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixBDEuler::FixBDEuler(LAMMPS *lmp, int narg, char **arg) :
+FixBDActivity::FixBDActivity(LAMMPS *lmp, int narg, char **arg) :
   FixNVE(lmp, narg, arg)
 {
   if (narg != 7) error->all(FLERR,"Illegal fix bd/euler command");
@@ -57,7 +57,7 @@ FixBDEuler::FixBDEuler(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
-FixBDEuler::~FixBDEuler()
+FixBDActivity::~FixBDActivity()
 {
 
   delete random;
@@ -67,7 +67,7 @@ FixBDEuler::~FixBDEuler()
 
 /* ---------------------------------------------------------------------- */
 
-void FixBDEuler::init()
+void FixBDActivity::init()
 {
 
   if (!atom->mu_flag)
@@ -91,7 +91,7 @@ void FixBDEuler::init()
    set current t_target and t_sqrt
 ------------------------------------------------------------------------- */
 
-void FixBDEuler::compute_target()
+void FixBDActivity::compute_target()
 {
   double delta = update->ntimestep - update->beginstep;
   if (delta != 0.0) delta /= update->endstep - update->beginstep;
@@ -105,17 +105,14 @@ void FixBDEuler::compute_target()
 
 /* ---------------------------------------------------------------------- */
 
-void FixBDEuler::initial_integrate(int vflag)
+void FixBDActivity::initial_integrate(int vflag)
 {
-  int *ellipsoid = atom->ellipsoid;
   double **x = atom->x;
   double **v = atom->v;
   double **mu = atom->mu;
   double **f = atom->f;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  double **torque = atom->torque;
-  double **omega = atom->omega;
 
 
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
@@ -143,11 +140,9 @@ void FixBDEuler::initial_integrate(int vflag)
       v[i][1]  =  da/dt;
 
 
-      dar   =   sqrtdt * gamma3 * (random->uniform()-0.5);
-      da    =   dt * gamma4 * torque[i][2] / t_target + dar;
+      da   =   sqrtdt * gamma3 * (random->uniform()-0.5);
       cosda = cos(da);
       sinda = sin(da);
-      omega[i][2] = da/dt; 
 
 
       da = mu[i][0];

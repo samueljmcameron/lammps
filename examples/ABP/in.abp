@@ -34,17 +34,20 @@ variable     q_cut equal 0.0
 variable     cutoff equal 1.1224
 
 
-pair_style hybrid/overlay lj/cut 2.5  activity ${q_cut} ${fp} 
+pair_style hybrid/overlay lj/cut 2.5  activity ${q_cut} ${fp}
+#pair_style lj/cut 2.5
+#pair_coeff * * 1.0 1.0 1.1224
 pair_coeff * * lj/cut  1.0 1.0 1.1224
 pair_coeff * * activity 
 pair_modify pair lj/cut shift yes
+#pair_modify shift yes
 
 
 
 
 compute      d  all property/atom  mux muy 
 
-fix         1 all bd/euler 1.0 1.0 1.0 ${seed}
+fix         1 all bd/activity 1.0 1.0 1.0 ${seed}
 fix         2 all enforce2d
 
 
@@ -93,7 +96,7 @@ thermo_style    custom step temp epair c_mymsdd[4] v_Diff c_dipole[1][4] c_psi6a
 
 
 # write trajectory and thermo in a log-scale frequency
-dump            1 all custom 200000 dump_${fp}_${rho}.lammpstrj id type x y xu yu mux muy fx fy tqz v_psi6 c_psi6[1] c_psi6[2] c_c1  
+dump            1 all custom 200000 dump_${fp}_${rho}.lammpstrj id type x y xu yu mux muy fx fy v_psi6 c_psi6[1] c_psi6[2] c_c1  
 variable        d equal logfreq2(10,18,10)
 dump_modify     1 every v_d first yes sort id
 
