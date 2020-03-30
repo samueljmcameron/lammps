@@ -37,9 +37,13 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixBDActivity::FixBDActivity(LAMMPS *lmp, int narg, char **arg) :
-  FixNVE(lmp, narg, arg)
+  Fix(lmp, narg, arg)
 {
-  if (narg != 7) error->all(FLERR,"Illegal fix bd/euler command");
+  thermo_virial = 1;
+  virial_flag = 1;
+  time_integrate = 1;
+  
+  if (narg != 8) error->all(FLERR,"Illegal fix bd/euler command");
 
   if (domain->dimension != 2) error->all(FLERR,"Fix bd/euler requires 2d simulation");
 
@@ -48,11 +52,32 @@ FixBDActivity::FixBDActivity(LAMMPS *lmp, int narg, char **arg) :
   t_stop = force->numeric(FLERR,arg[4]);
   diff = force->numeric(FLERR,arg[5]);
   if (diff <= 0.0) error->all(FLERR,"Fix bd/euler diffusion coefficient must be > 0.0");
-  seed = force->inumeric(FLERR,arg[6]);
+  activity = force->numeric(FLERR,arg[6]);
+  if (activity>0) {
+    activity_flag = 1;
+  } else if (activity<0) {
+    error->all(FLERR,"Illegal fix bd/activity command");
+  } else {
+    activity_flag = 0;
+  }
+  
+  seed = force->inumeric(FLERR,arg[7]);
   if (seed <= 0) error->all(FLERR,"Illegal fix bd/euler command");
-
+  force_flag = 0;
   // initialize Marsaglia RNG with processor-unique seed
   random = new RanMars(lmp,seed + comm->me);
+
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+int FixBDActivity::setmask()
+{
+  int mask = 0;
+  mask |= POST_FORCE;
+  mask |= FINAL_INTEGRATE;
+  return mask;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -84,7 +109,12 @@ void FixBDActivity::init()
   gamma3 = sqrt( 24 * 3 * diff );
   gamma4 = 3 * diff / force->boltz; 
 
-  FixNVE::init();
+  //  dtv = update->dt;
+  //  dtf = 0.5 * update->dt * force->ftm2v;
+
+  //if (strstr(update->integrate_style,"respa"))
+  //  step_respa = ((Respa *) update->integrate)->step;
+
 }
 
 /* ----------------------------------------------------------------------
@@ -102,10 +132,9 @@ void FixBDActivity::compute_target()
 
 }
 
-
 /* ---------------------------------------------------------------------- */
 
-void FixBDActivity::initial_integrate(int vflag)
+void FixBDActivity::final_integrate()
 {
   double **x = atom->x;
   double **v = atom->v;
@@ -126,7 +155,7 @@ void FixBDActivity::initial_integrate(int vflag)
 
 
   for (int i = 0; i < nlocal; i++)
-    if (mask[i] & groupbit) {            
+    if (mask[i] & groupbit) {
 
       da = (dt * gamma1 * f[i][0] / t_target
 	    +    sqrtdt * gamma2 * (random->uniform()-0.5));
@@ -154,3 +183,65 @@ void FixBDActivity::initial_integrate(int vflag)
 }
 
 
+/* ----------------------------------------------------------------------
+   apply active force, stolen from MISC/fix_efield.cpp 
+------------------------------------------------------------------------- */
+
+void FixBDActivity::post_force(int vflag)
+{
+  double **f = atom->f;
+  double *q = atom->q;
+  int *mask = atom->mask;
+  imageint *image = atom->image;
+  int nlocal = atom->nlocal;
+  double fsum[4];
+
+  // energy and virial setup
+
+  if (vflag) v_setup(vflag);
+  else evflag = 0;
+
+
+  // fsum[0] = "potential energy" for added force
+  // fsum[123] = extra force added to atoms
+
+  fsum[0] = fsum[1] = fsum[2] = fsum[3] = 0.0;
+  force_flag = 0;
+
+  double **x = atom->x;
+  double **mu = atom->mu;
+  double fx,fy;
+  double v[6];
+
+  // constant activity parameter
+
+  double unwrap[3];
+
+  // charge interactions
+  // force = activity*mu, potential energy = F dot x in unwrapped coords
+
+  if (activity_flag) {
+    for (int i = 0; i < nlocal; i++)
+      if (mask[i] & groupbit) {
+
+	fx = activity*mu[i][0];
+	fy = activity*mu[i][1];
+	f[i][0] += fx;
+	f[i][1] += fy;
+	
+	domain->unmap(x[i],image[i],unwrap);
+	fsum[0] -= fx*unwrap[0]+fy*unwrap[1];
+	fsum[1] += fx;
+	fsum[2] += fy;
+	if (evflag) {
+	  v[0] = fx*unwrap[0];
+	  v[1] = fy*unwrap[1];
+	  v[2] = 0;
+	  v[3] = fx*unwrap[1];
+	  v[4] = 0;
+	  v[5] = 0;
+	  v_tally(i, v);
+	}
+      }
+  }
+}
