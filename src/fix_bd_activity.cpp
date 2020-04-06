@@ -72,11 +72,21 @@ FixBDActivity::FixBDActivity(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
+void FixBDActivity::setup(int vflag)
+{
+  printf("%s\n",update->integrate_style);
+  if (strstr(update->integrate_style,"verlet")) {
+    pre_force(vflag);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
 int FixBDActivity::setmask()
 {
   int mask = 0;
-  mask |= POST_FORCE;
-  mask |= FINAL_INTEGRATE;
+  mask |= INITIAL_INTEGRATE;
+  mask |= PRE_FORCE;
   return mask;
 }
 
@@ -134,7 +144,7 @@ void FixBDActivity::compute_target()
 
 /* ---------------------------------------------------------------------- */
 
-void FixBDActivity::final_integrate()
+void FixBDActivity::initial_integrate(int /* vflag */)
 {
   double **x = atom->x;
   double **v = atom->v;
@@ -187,7 +197,7 @@ void FixBDActivity::final_integrate()
    apply active force, stolen from MISC/fix_efield.cpp 
 ------------------------------------------------------------------------- */
 
-void FixBDActivity::post_force(int vflag)
+void FixBDActivity::pre_force(int vflag)
 {
   double **f = atom->f;
   double *q = atom->q;

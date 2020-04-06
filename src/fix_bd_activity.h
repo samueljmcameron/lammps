@@ -29,11 +29,11 @@ class FixBDActivity : public Fix {
   FixBDActivity(class LAMMPS *, int, char **);
   virtual ~FixBDActivity();
   void init();
-  //void initial_integrate(int);
-  void final_integrate();
-  void post_force(int);
+  void initial_integrate(int);
+  //void final_integrate();
+  void pre_force(int);
   int setmask();
-
+  void setup(int vflag);
  private:
   double dt, sqrtdt;
  protected:
