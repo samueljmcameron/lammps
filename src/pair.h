@@ -67,6 +67,7 @@ class Pair : protected Pointers {
   int spinflag;                  // 1 if compatible with spin solver
   int reinitflag;                // 1 if compatible with fix adapt and alike
 
+  int activityflag;              // 1 if compatible with active brownian particles
   int centroidstressflag;        // compatibility with centroid atomic stress
                                  // 1 if same as two-body atomic stress
                                  // 2 if implemented and different from two-body
@@ -256,6 +257,14 @@ class Pair : protected Pointers {
   void v_tally2(int, int, double, double *);
   void v_tally_tensor(int, int, int, int,
                       double, double, double, double, double, double);
+
+  // added by me for ABP calculation. Note that this does not include
+  // the swim part of the pressure.
+  void v_tally_ABP_noswim(int, int, int, double, double, double,
+			  double, double, double, double, double,
+			  double, double, double, double);
+
+  
   void virial_fdotr_compute();
 
   // union data struct for packing 32-bit and 64-bit ints into double bufs

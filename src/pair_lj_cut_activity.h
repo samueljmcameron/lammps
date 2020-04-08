@@ -13,47 +13,32 @@
 
 #ifdef PAIR_CLASS
 
-PairStyle(lj/cut,PairLJCut)
+PairStyle(lj/cut/activity,PairLJCutActivity)
 
 #else
 
-#ifndef LMP_PAIR_LJ_CUT_H
-#define LMP_PAIR_LJ_CUT_H
+#ifndef LMP_PAIR_LJ_CUT_ACTIVITY_H
+#define LMP_PAIR_LJ_CUT_ACTIVITY_H
 
-#include "pair.h"
+#include "pair_lj_cut.h"
 
 namespace LAMMPS_NS {
 
-class PairLJCut : public Pair {
+class PairLJCutActivity : public PairLJCut {
  public:
-  PairLJCut(class LAMMPS *);
-  virtual ~PairLJCut();
-  virtual void compute(int, int);
-  virtual void settings(int, char **);
-  virtual void coeff(int, char **);
-  virtual void init_style();
-  double init_one(int, int);
-  void write_restart(FILE *);
-  void read_restart(FILE *);
-  void write_restart_settings(FILE *);
-  void read_restart_settings(FILE *);
-  void write_data(FILE *);
-  void write_data_all(FILE *);
-  double single(int, int, int, int, double, double, double, double &);
-  void *extract(const char *, int &);
+  PairLJCutActivity(class LAMMPS *);
+  ~PairLJCutActivity();
+  void compute(int, int);
+  void settings(int, char **);
+  void coeff(int, char **);
 
-  void compute_inner();
-  void compute_middle();
-  void compute_outer(int, int);
 
  protected:
-  double cut_global;
-  double **cut;
-  double **epsilon,**sigma;
-  double **lj1,**lj2,**lj3,**lj4,**offset;
-  double *cut_respa;
+  double activity;
+  int activity_on;     // 1 if activity != 0
+  double Dr;
 
-  virtual void allocate();
+  void allocate();
 };
 
 }

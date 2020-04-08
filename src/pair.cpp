@@ -17,6 +17,7 @@
 
 #include "pair.h"
 #include <mpi.h>
+#include <stdio.h>
 #include <cfloat>    // IWYU pragma: keep
 #include <climits>   // IWYU pragma: keep
 #include <cmath>
@@ -72,6 +73,7 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
 
   ewaldflag = pppmflag = msmflag = dispersionflag = tip4pflag = dipoleflag = spinflag = 0;
   reinitflag = 1;
+  activityflag = 0;
   centroidstressflag = 4;
 
   // pair_modify settings
@@ -1544,6 +1546,66 @@ void Pair::v_tally_tensor(int i, int j, int nlocal, int newton_pair,
       vatom[j][5] += 0.5*v[5];
     }
   }
+}
+
+
+/* ----------------------------------------------------------------------
+   tally virial into global and per-atom accumulators for active
+   brownian particles addition to the virial pressure.
+   DOES NOT include the ideal swim term, which
+   must be added via the activity fix using the virial flag.
+   need i < nlocal test since called by bond_quartic and dihedral_charmm
+------------------------------------------------------------------------- */
+
+void Pair::v_tally_ABP_noswim(int i, int j, int nlocal,
+			      double fpair,double mux_i,double muy_i,
+			      double muz_i,double mux_j,double muy_j,
+			      double muz_j,double activity,double Dr,
+			      double delx, double dely,double delz)
+{
+  double vact_i[3];
+  double vact_j[3];
+  double vswim = 0;
+  double d = domain->dimension;
+  double dum = 0.5*activity/((d-1)*Dr);
+
+  if (vflag_either) {
+
+    vact_i[0] = dum*fpair*delx*mux_i;
+    vact_i[1] = dum*fpair*dely*muy_i;
+    vact_i[2] = dum*fpair*delz*muz_i;
+    vact_j[0] = -1*dum*fpair*delx*mux_j;
+    vact_j[1] = -1*dum*fpair*dely*muy_j;
+    vact_j[2] = -1*dum*fpair*delz*muz_j;
+
+    if (vflag_global) {
+      if (i < nlocal) {
+	virial[0] += vact_i[0];
+	virial[1] += vact_i[1];
+	virial[2] += vact_i[2];
+
+      }
+      if (j < nlocal) {
+	virial[0] += vact_j[0];
+	virial[1] += vact_j[1];
+	virial[2] += vact_j[2];
+      }
+    }
+
+    if (vflag_atom) {
+      if (i < nlocal) {
+        vatom[i][0] += vact_i[0];
+        vatom[i][1] += vact_i[1];
+        vatom[i][2] += vact_i[2];
+      }
+      if (j < nlocal) {
+        vatom[j][0] += vact_j[0];
+        vatom[j][1] += vact_j[1];
+        vatom[j][2] += vact_j[2];
+      }
+    }
+  }
+
 }
 
 /* ----------------------------------------------------------------------

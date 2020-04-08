@@ -31,23 +31,20 @@ class FixBDActivity : public Fix {
   void init();
   void initial_integrate(int);
   //void final_integrate();
-  void pre_force(int);
+
   int setmask();
-  void setup(int vflag);
  private:
   double dt, sqrtdt;
  protected:
   int seed;
   double t_start,t_stop,t_target,tsqrt;
-  double diff;
-  double activity;
+  double diff_t;
   double gamma1,gamma2, gamma3, gamma4;
   double cosda, sinda, da, dar;
   class RanMars *random;
   void compute_target();
 
   int force_flag;
-  int activity_flag;
 };
 
 }

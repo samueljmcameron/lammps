@@ -1,0 +1,247 @@
+/* ----------------------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
+
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
+
+   See the README file in the top-level LAMMPS directory.
+------------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------------
+   Contributing author: Paul Crozier (SNL)
+------------------------------------------------------------------------- */
+
+#include "pair_lj_cut_activity.h"
+#include <mpi.h>
+#include <cmath>
+#include <cstring>
+#include "atom.h"
+#include "comm.h"
+#include "force.h"
+#include "neighbor.h"
+#include "neigh_list.h"
+#include "neigh_request.h"
+#include "update.h"
+#include "respa.h"
+#include "math_const.h"
+#include "memory.h"
+#include "error.h"
+#include "utils.h"
+
+using namespace LAMMPS_NS;
+using namespace MathConst;
+
+/* ---------------------------------------------------------------------- */
+
+PairLJCutActivity::PairLJCutActivity(LAMMPS *lmp) : PairLJCut(lmp)
+{
+  respa_enable=0;
+  writedata = 1;
+  activityflag = 1;
+  centroidstressflag = 1;
+}
+
+/* ---------------------------------------------------------------------- */
+
+PairLJCutActivity::~PairLJCutActivity()
+{
+  if (allocated) {
+    memory->destroy(setflag);
+    memory->destroy(cutsq);
+
+    memory->destroy(cut);
+    memory->destroy(epsilon);
+    memory->destroy(sigma);
+    memory->destroy(lj1);
+    memory->destroy(lj2);
+    memory->destroy(lj3);
+    memory->destroy(lj4);
+    memory->destroy(offset);
+  }
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+void PairLJCutActivity::compute(int eflag, int vflag)
+{
+  int i,j,ii,jj,inum,jnum,itype,jtype;
+  double xtmp,ytmp,ztmp,delx,dely,delz,evdwl,fpair;
+  double rsq,r2inv,r6inv,forcelj,factor_lj;
+  int *ilist,*jlist,*numneigh,**firstneigh;
+
+  evdwl = 0.0;
+  ev_init(eflag,vflag);
+
+  double **x = atom->x;
+  double **f = atom->f;
+  double **mu = atom->mu;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  double *special_lj = force->special_lj;
+  int newton_pair = force->newton_pair;
+
+  inum = list->inum;
+  ilist = list->ilist;
+  numneigh = list->numneigh;
+  firstneigh = list->firstneigh;
+
+  // loop over neighbors of my atoms
+
+  for (ii = 0; ii < inum; ii++) {
+    i = ilist[ii];
+    xtmp = x[i][0];
+    ytmp = x[i][1];
+    ztmp = x[i][2];
+    itype = type[i];
+    jlist = firstneigh[i];
+    jnum = numneigh[i];
+
+    f[i][0] += activity*mu[i][0];
+    f[i][1] += activity*mu[i][1];
+    f[i][2] += activity*mu[i][2];
+
+    
+    for (jj = 0; jj < jnum; jj++) {
+      j = jlist[jj];
+      factor_lj = special_lj[sbmask(j)];
+      j &= NEIGHMASK;
+
+      delx = xtmp - x[j][0];
+      dely = ytmp - x[j][1];
+      delz = ztmp - x[j][2];
+      rsq = delx*delx + dely*dely + delz*delz;
+      jtype = type[j];
+
+      if (rsq < cutsq[itype][jtype]) {
+        r2inv = 1.0/rsq;
+        r6inv = r2inv*r2inv*r2inv;
+        forcelj = r6inv * (lj1[itype][jtype]*r6inv - lj2[itype][jtype]);
+        fpair = factor_lj*forcelj*r2inv;
+
+        f[i][0] += delx*fpair;
+        f[i][1] += dely*fpair;
+        f[i][2] += delz*fpair;
+        if (newton_pair || j < nlocal) {
+          f[j][0] -= delx*fpair;
+          f[j][1] -= dely*fpair;
+          f[j][2] -= delz*fpair;
+        }
+
+        if (eflag) {
+          evdwl = r6inv*(lj3[itype][jtype]*r6inv-lj4[itype][jtype]) -
+            offset[itype][jtype];
+          evdwl *= factor_lj;
+        }
+
+        if (evflag) ev_tally(i,j,nlocal,newton_pair,
+                             evdwl,0.0,fpair,delx,dely,delz);
+	if (activity_on) {
+	  v_tally_ABP_noswim(i,j,nlocal,fpair,mu[i][0],mu[i][1],
+			     mu[i][2],mu[j][0],mu[j][1],mu[j][2],
+			     activity,Dr,delx,dely,delz);
+	}
+	  
+      }
+    }
+  }
+
+  if (vflag_fdotr) virial_fdotr_compute();
+}
+
+
+/* ----------------------------------------------------------------------
+   global settings
+------------------------------------------------------------------------- */
+
+void PairLJCutActivity::settings(int narg, char **arg)
+{
+  if (narg != 3 and narg != 1)
+    error->all(FLERR,"Illegal pair_style command");
+
+  cut_global = force->numeric(FLERR,arg[0]);
+  if (narg == 3) {
+    activity = force->numeric(FLERR,arg[1]);
+    activity_on = 1;
+    Dr = force->numeric(FLERR,arg[2]);
+    if (Dr <= 0)
+      error->all(FLERR,"Illegal pair_style command, rotational "
+		 "diffusion must be > 0.");
+  }
+
+  if (force->newton_pair && activity_on)
+    error->all(FLERR,"Cannot use newton's third law with activity!");
+  // reset cutoffs that have been explicitly set
+
+  if (allocated) {
+    int i,j;
+    for (i = 1; i <= atom->ntypes; i++)
+      for (j = i; j <= atom->ntypes; j++)
+        if (setflag[i][j]) cut[i][j] = cut_global;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   set coeffs for one or more type pairs
+------------------------------------------------------------------------- */
+
+void PairLJCutActivity::coeff(int narg, char **arg)
+{
+  if (narg < 4 || narg > 5)
+    error->all(FLERR,"Incorrect args for pair coefficients");
+  if (!allocated) allocate();
+
+  int ilo,ihi,jlo,jhi;
+  force->bounds(FLERR,arg[0],atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,arg[1],atom->ntypes,jlo,jhi);
+
+  double epsilon_one = force->numeric(FLERR,arg[2]);
+  double sigma_one = force->numeric(FLERR,arg[3]);
+
+  double cut_one = cut_global;
+  if (narg == 5) cut_one = force->numeric(FLERR,arg[4]);
+
+  int count = 0;
+  for (int i = ilo; i <= ihi; i++) {
+    for (int j = MAX(jlo,i); j <= jhi; j++) {
+      epsilon[i][j] = epsilon_one;
+      sigma[i][j] = sigma_one;
+      cut[i][j] = cut_one;
+      setflag[i][j] = 1;
+      count++;
+    }
+  }
+
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+}
+
+/* ----------------------------------------------------------------------
+   allocate all arrays
+------------------------------------------------------------------------- */
+
+void PairLJCutActivity::allocate()
+{
+  allocated = 1;
+  int n = atom->ntypes;
+
+  memory->create(setflag,n+1,n+1,"pair:setflag");
+  for (int i = 1; i <= n; i++)
+    for (int j = i; j <= n; j++)
+      setflag[i][j] = 0;
+
+  memory->create(cutsq,n+1,n+1,"pair:cutsq");
+
+  memory->create(cut,n+1,n+1,"pair:cut");
+  memory->create(epsilon,n+1,n+1,"pair:epsilon");
+  memory->create(sigma,n+1,n+1,"pair:sigma");
+  memory->create(lj1,n+1,n+1,"pair:lj1");
+  memory->create(lj2,n+1,n+1,"pair:lj2");
+  memory->create(lj3,n+1,n+1,"pair:lj3");
+  memory->create(lj4,n+1,n+1,"pair:lj4");
+  memory->create(offset,n+1,n+1,"pair:offset");
+}
+
