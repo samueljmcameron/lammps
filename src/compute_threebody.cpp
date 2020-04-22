@@ -12,10 +12,10 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing authors: Paul Crozier (SNL), Jeff Greathouse (SNL)
+   Contributing author: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "compute_rdf.h"
+#include "compute_threebody.h"
 #include <mpi.h>
 #include <stdio.h>
 #include <cmath>
@@ -39,9 +39,9 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-ComputeRDF::ComputeRDF(LAMMPS *lmp, int narg, char **arg) :
+ComputeThreeBody::ComputeThreeBody(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg),
-  rdfpair(NULL), nrdfpair(NULL), ilo(NULL), ihi(NULL), jlo(NULL), jhi(NULL),
+  rdfpair(NULL), ilo(NULL), ihi(NULL), jlo(NULL), jhi(NULL),
   hist(NULL), histall(NULL), typecount(NULL), icount(NULL), jcount(NULL),
   duplicates(NULL)
 {
@@ -71,11 +71,10 @@ ComputeRDF::ComputeRDF(LAMMPS *lmp, int narg, char **arg) :
       else cutflag = 1;
     } else error->all(FLERR,"Illegal compute threebody command");
   }
-  
   if (force->newton_pair) {
     error->all(FLERR,"compute threebody command is incompatible with "
 	       "newton pair being on.");
-  
+  }  
   // pairwise args, fix it to be always one set of pairs for now,
   // but might change this later to deal with density differences
 
@@ -83,7 +82,7 @@ ComputeRDF::ComputeRDF(LAMMPS *lmp, int narg, char **arg) :
 
 
   size_array_rows = nbin_total;
-  size_array_cols = 1;
+  size_array_cols = 4;
 
   int ntypes = atom->ntypes;
   if (ntypes != 1) {
@@ -91,7 +90,7 @@ ComputeRDF::ComputeRDF(LAMMPS *lmp, int narg, char **arg) :
 	       "atom types.");
   }
     
-  memory->create(rdfpair,ntypes+1,ntypes+1,"rdf:rdfpair");
+  memory->create(rdfpair,npairs,ntypes+1,ntypes+1,"rdf:rdfpair");
 
   ilo = new int[npairs];
   ihi = new int[npairs];
@@ -105,12 +104,12 @@ ComputeRDF::ComputeRDF(LAMMPS *lmp, int narg, char **arg) :
   nrdfpair = 1;
   
 
-  rdfpair[1][1] = 1;
+  rdfpair[0][1][1] = 1;
 
 
-  memory->create(hist,nbin_dist,nbin_dist,nbin_theta,"rdf:hist");
-  memory->create(histall,nbin_dist,nbin_dist,nbin_theta,"rdf:histall");
-  memory->create(array,nbin_total,1,"rdf:array");
+  memory->create(hist,nbin_theta,nbin_dist,nbin_dist,"rdf:hist");
+  memory->create(histall,nbin_theta,nbin_dist,nbin_dist,"rdf:histall");
+  memory->create(array,nbin_total,4,"rdf:array");
   typecount = new int[ntypes+1];
   icount = new int[npairs];
   jcount = new int[npairs];
@@ -122,7 +121,7 @@ ComputeRDF::ComputeRDF(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
-ComputeRDF::~ComputeRDF()
+ComputeThreeBody::~ComputeThreeBody()
 {
   memory->destroy(rdfpair);
   delete [] ilo;
@@ -130,6 +129,7 @@ ComputeRDF::~ComputeRDF()
   delete [] jlo;
   delete [] jhi;
   memory->destroy(hist);
+  memory->destroy(histall);
   memory->destroy(array);
   delete [] typecount;
   delete [] icount;
@@ -139,7 +139,7 @@ ComputeRDF::~ComputeRDF()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeRDF::init()
+void ComputeThreeBody::init()
 {
 
   if (!force->pair && !cutflag)
@@ -181,7 +181,7 @@ void ComputeRDF::init()
   //array[i][0] = (i+0.5) * delr;
 
   // initialize normalization, finite size correction, and changing atom counts
-  // ... not sure what this does
+  // ...not sure what this does
 
   natoms_old = atom->natoms;
   dynamic = group->dynamic[igroup];
@@ -212,14 +212,14 @@ void ComputeRDF::init()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeRDF::init_list(int /*id*/, NeighList *ptr)
+void ComputeThreeBody::init_list(int /*id*/, NeighList *ptr)
 {
   list = ptr;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeRDF::init_norm()
+void ComputeThreeBody::init_norm()
 {
   int i,j,m;
 
@@ -258,27 +258,21 @@ void ComputeRDF::init_norm()
   for (i = 0; i < npairs; i++) jcount[i] = scratch[i];
   MPI_Allreduce(duplicates,scratch,npairs,MPI_INT,MPI_SUM,world);
   for (i = 0; i < npairs; i++) duplicates[i] = scratch[i];
+
   delete [] scratch;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeRDF::compute_array()
+void ComputeThreeBody::compute_array()
 // ======================================================================
-// In doing this counting, we are allowing configurations of the form
-//
-//     1<--------------- 2 --------->3,
-//       \bm{r}_{21}       \bm{r}_{23}
-//
-// where r_{21}< cutoff, r_{23} < cutoff, but
-// |\bm{r}_{21}-\bm{r}_{23}|>= cutoff. So a three particle configuration
-// will still be counted even if one of its two pairs has separation
-// larger than cutoff.
+// Only counting triplets where all three distances are less than cutoff
+// away.
 //
 // ======================================================================
 {
-  int i,j,m,ii,jj,inum,jnum,itype,jtype,ipair,jpair,ibin,ihisto;
-  int ij_bin,ik_bin,theta_bin;
+  int i,j,m,ii,jj,inum,jnum,itype,jtype,ipair,jpair;
+  int ij_bin,ik_bin,theta_bin,dum_jk_bin;
   int k,kk,knum,ktype,kpair;
   double xtmp,ytmp,ztmp;
   double xij,yij,zij,xik,yik,zik,rij,rik,rjk,theta;
@@ -330,8 +324,6 @@ void ComputeRDF::compute_array()
   double *special_coul = force->special_coul;
   double *special_lj = force->special_lj;
 
-
-
   // loop over full neighbor list of my atoms
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -344,6 +336,8 @@ void ComputeRDF::compute_array()
 
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
+      factor_lj = special_lj[sbmask(j)];
+      factor_coul = special_coul[sbmask(j)];
       j &= NEIGHMASK;
 
       // if both weighting factors are 0, skip this pair
@@ -352,17 +346,24 @@ void ComputeRDF::compute_array()
 
       if (factor_lj == 0.0 && factor_coul == 0.0) continue;
 
+
+
       if (!(mask[j] & groupbit)) continue;
 
       for (kk = 0; kk < jnum; kk++) {
 	if (jj == kk) continue;
 	k = jlist[kk];
+	factor_lj = special_lj[sbmask(k)];
+	factor_coul = special_coul[sbmask(k)];
+	
 	k &= NEIGHMASK;
+
 
 	if (factor_lj == 0.0 && factor_coul == 0.0) continue;
 
 	if (!(mask[k] & groupbit)) continue;
 
+	
 	xij = x[j][0]-xtmp;
 	yij = x[j][1]-ytmp;
 	zij = x[j][2]-ztmp;
@@ -381,48 +382,73 @@ void ComputeRDF::compute_array()
 
 	ij_bin = static_cast<int> (rij*deldistinv);
 	ik_bin = static_cast<int> (rik*deldistinv);
+	dum_jk_bin = static_cast<int> (rjk*deldistinv);
 	theta_bin = static_cast<int> (theta*delthetainv);
-	if (ij_bin >= nbin_dist || ik_bin >=nbin_dist) continue;
+	
+	if (ij_bin >= nbin_dist || ik_bin >=nbin_dist
+	    || dum_jk_bin > nbin_dist) continue;
 	if (theta_bin >= nbin_theta) {
 	  printf("theta = %f, theta_bin = %d\n",theta,theta_bin);
 	  error->all(FLERR,"theta > 3.1415 somehow? "
 		     "Error in compute threebody.");
 	}
 
-	
 
-	if (rjk > cutoff) {
-	  // since rjk> cutoff, this means that atom i is the central
-	  // atom in the three atom configuration. Since we still want
-	  // to count all groups with this configuration (see header
-	  // at the top of this function), we have to double count this
-	  // here as otherwise this configuration is only counted two
-	  // times (instead of six times).
-	  denom = (2*ij_bin+deldist)*deldist;
-	  denom *= (2*ik_bin+deldist)*deldist;
-	  denom *= MY_PI*deltheta/2.0;
-	  denom *= icount[0]*icount[0]*icount[0]/(domain->xprd*domain->yprd
-						  *domain->xprd*domain->yprd);
-	  hist[theta_bin][ij_bin][ik_bin] += 2.0/denom;
-	} else {
-	  hist[theta_bin][ij_bin][ik_bin] += 1.0/denom;
-	}
+	hist[theta_bin][ij_bin][ik_bin] += 1.0;
+
       }
     }
   }
 
   // sum histograms across procs
 
-  MPI_Allreduce(hist,histall,nbin_total,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(hist[0][0],histall[0][0],nbin_total,MPI_DOUBLE,MPI_SUM,world);
 
   // convert counts to g(r) and coord(r) and copy into output array
   // vfrac = fraction of volume in shell m
   // npairs = number of pairs, corrected for duplicates
   // duplicates = pairs in which both atoms are the same
 
-  double constant,vfrac,gr,ncoord,rlower,rupper,normfac;
+  
+  double constant,vfrac,gr,ulower,uupper,vlower,vupper,normfac;
+  int flat_index;
 
-  if (domain->dimension == 3) {
+  if (domain->dimension==2) {
+    constant = (domain->xprd*domain->yprd);
+    constant = constant*constant;
+    constant = 2*MY_PI*deltheta/constant;
+
+    //normfac = (icount[0] > 0) ? static_cast<double>(jcount[0])
+    // - static_cast<double>(duplicates[0])/icount[0] : 0.0;
+    normfac = icount[0]*icount[0]*icount[0];
+	
+    for (theta_bin = 0; theta_bin < nbin_theta; theta_bin ++ ) {
+      
+      for (ij_bin = 0; ij_bin < nbin_dist; ij_bin++) {
+        ulower = ij_bin*deldist;
+        uupper = (ij_bin+1)*deldist;
+	for (ik_bin = 0; ik_bin < nbin_dist; ik_bin++) {
+	  vlower = ik_bin*deldist;
+	  vupper = (ik_bin+1)*deldist;	  
+	  vfrac = (constant * (uupper*uupper - ulower*ulower)/2.0
+		   * (vupper*vupper - vlower*vlower)/2.0);
+	  if (vfrac * normfac != 0.0)
+	    gr = histall[theta_bin][ij_bin][ik_bin]/(vfrac *normfac);
+	  else {
+	    gr = 0.0;
+	  }
+	  flat_index = ik_bin + (ij_bin+ theta_bin * nbin_dist) *nbin_dist;
+	  array[flat_index][0] = (theta_bin + 0.5)*deltheta;
+	  array[flat_index][1] = (ij_bin + 0.5)*deldist;
+	  array[flat_index][2] = (ik_bin + 0.5)*deldist;
+	  array[flat_index][3] = gr;
+	}
+      }
+    }
+  }
+  
+  /*
+  else (domain->dimension == 3) {
     constant = 4.0*MY_PI / (3.0*domain->xprd*domain->yprd*domain->zprd);
 
     for (m = 0; m < npairs; m++) {
@@ -443,25 +469,6 @@ void ComputeRDF::compute_array()
       }
     }
 
-  } else {
-    constant = MY_PI / (domain->xprd*domain->yprd);
-
-    for (m = 0; m < npairs; m++) {
-      ncoord = 0.0;
-      normfac = (icount[m] > 0) ? static_cast<double>(jcount[m])
-                - static_cast<double>(duplicates[m])/icount[m] : 0.0;
-      for (ibin = 0; ibin < nbin; ibin++) {
-        rlower = ibin*delr;
-        rupper = (ibin+1)*delr;
-        vfrac = constant * (rupper*rupper - rlower*rlower);
-        if (vfrac * normfac != 0.0)
-          gr = histall[m][ibin] / (vfrac * normfac * icount[m]);
-        else gr = 0.0;
-        if (icount[m] != 0)
-          ncoord += gr * vfrac * normfac;
-        array[ibin][1+2*m] = gr;
-        array[ibin][2+2*m] = ncoord;
-      }
     }
-  }
+  */
 }

@@ -38,7 +38,7 @@ class ComputeThreeBody : public Compute {
   int cutflag;                   // user cutoff flag
   int npairs;                    // # of rdf pairs
   bigint nbin_total;             // nbin_dist*nbin_dist*nbin_theta
-  double deldist,fdeldistinv;    // bin width and its inverse for distance
+  double deldist,deldistinv;     // bin width and its inverse for distance
   double deltheta,delthetainv;   // bin width and its inverse for angle
   double cutoff_user;            // user-specified cutoff
   double mycutneigh;             // user-specified cutoff + neighbor skin
