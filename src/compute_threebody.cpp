@@ -386,7 +386,7 @@ void ComputeThreeBody::compute_array()
 	theta_bin = static_cast<int> (theta*delthetainv);
 	
 	if (ij_bin >= nbin_dist || ik_bin >=nbin_dist
-	    || dum_jk_bin > nbin_dist) continue;
+	    || dum_jk_bin >= nbin_dist) continue;
 	if (theta_bin >= nbin_theta) {
 	  printf("theta = %f, theta_bin = %d\n",theta,theta_bin);
 	  error->all(FLERR,"theta > 3.1415 somehow? "
