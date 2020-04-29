@@ -416,7 +416,10 @@ void ComputeThreeBody::compute_array()
   if (domain->dimension==2) {
     constant = (domain->xprd*domain->yprd);
     constant = constant*constant;
-    constant = 2*MY_PI*deltheta/constant;
+    // the 2 in front of the deltheta below is necessary because
+    // deltatheta = pi/nbins over the [0,pi] region, but really
+    // the g_3bod is defined from 0 to 2pi.
+    constant = 2*MY_PI*2*deltheta/constant;
 
     //normfac = (icount[0] > 0) ? static_cast<double>(jcount[0])
     // - static_cast<double>(duplicates[0])/icount[0] : 0.0;
