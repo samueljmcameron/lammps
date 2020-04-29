@@ -420,7 +420,8 @@ void ComputeThreeBody::compute_array()
 
     //normfac = (icount[0] > 0) ? static_cast<double>(jcount[0])
     // - static_cast<double>(duplicates[0])/icount[0] : 0.0;
-    normfac = icount[0]*icount[0]*icount[0];
+    normfac = static_cast<double>(icount[0]);
+    normfac = normfac*normfac*normfac;
 	
     for (theta_bin = 0; theta_bin < nbin_theta; theta_bin ++ ) {
       
@@ -432,9 +433,12 @@ void ComputeThreeBody::compute_array()
 	  vupper = (ik_bin+1)*deldist;	  
 	  vfrac = (constant * (uupper*uupper - ulower*ulower)/2.0
 		   * (vupper*vupper - vlower*vlower)/2.0);
-	  if (vfrac * normfac != 0.0)
+	  //if (histall[theta_bin][ij_bin][ik_bin] < -1e-9) {
+	  //  printf("histogram  is less than zero!\n");
+	  //}
+	  if (vfrac * normfac != 0.0) {
 	    gr = histall[theta_bin][ij_bin][ik_bin]/(vfrac *normfac);
-	  else {
+	  } else {
 	    gr = 0.0;
 	  }
 	  flat_index = ik_bin + (ij_bin+ theta_bin * nbin_dist) *nbin_dist;
