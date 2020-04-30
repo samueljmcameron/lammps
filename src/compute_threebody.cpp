@@ -81,6 +81,8 @@ ComputeThreeBody::ComputeThreeBody(LAMMPS *lmp, int narg, char **arg) :
   npairs = 1;
 
 
+  //nbin_total = length
+  
   size_array_rows = nbin_total;
   size_array_cols = 4;
 
@@ -418,40 +420,17 @@ void ComputeThreeBody::compute_array()
     constant = constant*constant;
     // the 2 in front of the deltheta below is necessary because
     // deltatheta = pi/nbins over the [0,pi] region, but really
-    // the g_3bod is defined from 0 to 2pi.
+    // the g_3bod is defined from 0 to 2pi. So we are double-counting
+    // in theta since we are only letting theta [0,pi).
     constant = 2*MY_PI*2*deltheta/constant;
 
     //normfac = (icount[0] > 0) ? static_cast<double>(jcount[0])
     // - static_cast<double>(duplicates[0])/icount[0] : 0.0;
     normfac = static_cast<double>(icount[0]);
     normfac = normfac*normfac*normfac;
+
+    set_array(constant, normfac);
 	
-    for (theta_bin = 0; theta_bin < nbin_theta; theta_bin ++ ) {
-      
-      for (ij_bin = 0; ij_bin < nbin_dist; ij_bin++) {
-        ulower = ij_bin*deldist;
-        uupper = (ij_bin+1)*deldist;
-	for (ik_bin = 0; ik_bin < nbin_dist; ik_bin++) {
-	  vlower = ik_bin*deldist;
-	  vupper = (ik_bin+1)*deldist;	  
-	  vfrac = (constant * (uupper*uupper - ulower*ulower)/2.0
-		   * (vupper*vupper - vlower*vlower)/2.0);
-	  //if (histall[theta_bin][ij_bin][ik_bin] < -1e-9) {
-	  //  printf("histogram  is less than zero!\n");
-	  //}
-	  if (vfrac * normfac != 0.0) {
-	    gr = histall[theta_bin][ij_bin][ik_bin]/(vfrac *normfac);
-	  } else {
-	    gr = 0.0;
-	  }
-	  flat_index = ik_bin + (ij_bin+ theta_bin * nbin_dist) *nbin_dist;
-	  array[flat_index][0] = (theta_bin + 0.5)*deltheta;
-	  array[flat_index][1] = (ij_bin + 0.5)*deldist;
-	  array[flat_index][2] = (ik_bin + 0.5)*deldist;
-	  array[flat_index][3] = gr;
-	}
-      }
-    }
   }
   
   /*
@@ -478,4 +457,75 @@ void ComputeThreeBody::compute_array()
 
     }
   */
+}
+
+int ComputeThreeBody::length_of_array()
+{
+  double cutoff;
+  if (cutflag) {
+    cutoff=cutoff_user;
+  } else {
+    cutoff = force->pair->cutforce;
+  }
+  double rij, rik, theta;
+  
+  int count = 0;
+  for (int i = 0; i < nbin_theta; i++) {
+    for (int j = 0; j < nbin_dist; j++) {
+      for (int k = 0; k < nbin_dist; k++) {
+	theta = (i + 0.5)*deltheta;
+	rij = (j + 0.5)*deldist;
+	rik = (k + 0.5)*deldist;
+	if (compute_rjk(rij,rik,theta) < cutoff) {
+	  count += 1;
+	}
+      }
+    }
+  }
+  return count;
+}
+
+void ComputeThreeBody::set_array(double constant, double normfac)
+{
+  double ulower,uupper,vlower,vupper;
+  double vfrac;
+
+  int theta_bin,ij_bin,ik_bin;
+  double gr;
+
+  int flat_index;
+  
+  for (theta_bin = 0; theta_bin < nbin_theta; theta_bin ++ ) {
+    
+    for (ij_bin = 0; ij_bin < nbin_dist; ij_bin++) {
+      ulower = ij_bin*deldist;
+      uupper = (ij_bin+1)*deldist;
+      for (ik_bin = 0; ik_bin < nbin_dist; ik_bin++) {
+	vlower = ik_bin*deldist;
+	vupper = (ik_bin+1)*deldist;	  
+	vfrac = (constant * (uupper*uupper - ulower*ulower)/2.0
+		 * (vupper*vupper - vlower*vlower)/2.0);
+	//if (histall[theta_bin][ij_bin][ik_bin] < -1e-9) {
+	//  printf("histogram  is less than zero!\n");
+	//}
+	if (vfrac * normfac != 0.0) {
+	  gr = histall[theta_bin][ij_bin][ik_bin]/(vfrac *normfac);
+	} else {
+	  gr = 0.0;
+	}
+	flat_index = ik_bin + (ij_bin+ theta_bin * nbin_dist) *nbin_dist;
+	array[flat_index][0] = (theta_bin + 0.5)*deltheta;
+	array[flat_index][1] = (ij_bin + 0.5)*deldist;
+	array[flat_index][2] = (ik_bin + 0.5)*deldist;
+	array[flat_index][3] = gr;
+      }
+    }
+  }
+
+  return;
+}
+
+double ComputeThreeBody::compute_rjk(double rij, double rik, double theta)
+{
+  return sqrt(rij*rij + rik*rik - 2*rij*rik*cos(theta));
 }

@@ -55,6 +55,10 @@ class ComputeThreeBody : public Compute {
   class NeighList *list; // half neighbor list
   void init_norm();
   bigint natoms_old;
+
+  int length_of_array();
+  double compute_rjk(double,double,double);
+  void set_array(double, double);
 };
 
 }
