@@ -45,7 +45,7 @@ ComputeThreeBody::ComputeThreeBody(LAMMPS *lmp, int narg, char **arg) :
   hist(NULL), histall(NULL), typecount(NULL), icount(NULL), jcount(NULL),
   duplicates(NULL)
 {
-  if (narg < 5 || narg > 7)
+  if (narg != 5 && narg != 7 && narg != 9 && narg != 11)
     error->all(FLERR,"Illegal compute three body command");
 
   array_flag = 1;
@@ -58,34 +58,136 @@ ComputeThreeBody::ComputeThreeBody(LAMMPS *lmp, int narg, char **arg) :
   if (nbin_theta < 1) error->all(FLERR,"Illegal compute three body command");
 
   nbin_total = nbin_dist*nbin_dist*nbin_theta;
-  
   // optional args
   // nargpair = # of pairwise args, starting at iarg = 5
 
   cutflag = 0;
+  lower_cut = 0;
+  condenseflag = 0;
 
   if (narg > 5) {
     if (strcmp(arg[5],"cutoff") == 0) {
       cutoff_user = force->numeric(FLERR,arg[6]);
       if (cutoff_user <= 0.0) cutflag = 0;
       else cutflag = 1;
+      if (narg > 7) {
+	if (strcmp(arg[7],"lower_cutoff") == 0) {
+	  lower_cut = force->numeric(FLERR,arg[8]);
+	  if (lower_cut <= 0.0) lower_cut = 0;
+	  if (narg == 11) {
+	    if (strcmp(arg[9],"condense")==0) {
+	      if (strcmp(arg[10],"yes")==0) { 
+		condenseflag = 1;
+	      }
+	    } else error->all(FLERR,"Illegal compute threebody command");
+	  }
+	} else if (strcmp(arg[7],"condense")==0) {
+	  if (strcmp(arg[8],"yes")==0) { 
+	    condenseflag = 1;
+	  }
+	  if (narg == 11) {
+	    if (strcmp(arg[9],"lower_cutoff") == 0) {
+	      lower_cut = force->numeric(FLERR,arg[10]);
+	      if (lower_cut <= 0.0) lower_cut = 0;
+	    } else error->all(FLERR,"Illegal compute threebody command");
+	  }
+	} else error->all(FLERR,"Illegal compute threebody command");
+      }
+    } else if (strcmp(arg[5],"lower_cutoff") == 0) {
+      lower_cut = force->numeric(FLERR,arg[6]);
+      if (lower_cut <= 0.0) lower_cut = 0;
+      if (narg > 7) {
+	if (strcmp(arg[7],"cutoff") == 0) {
+	  cutoff_user = force->numeric(FLERR,arg[8]);
+	  if (cutoff_user <= 0.0) cutflag = 0;
+	  else cutflag = 1;
+	  if (narg == 11) {
+	    if (strcmp(arg[9],"condense")==0) {
+	      if (strcmp(arg[10],"yes")==0) { 
+		condenseflag = 1;
+	      }
+	    } else error->all(FLERR,"Illegal compute threebody command");
+	  }
+	} else if (strcmp(arg[7],"condense")==0) {
+	  if (strcmp(arg[8],"yes")==0) { 
+	    condenseflag = 1;
+	  }
+	  if (narg == 11) {
+	    if (strcmp(arg[9],"cutoff") == 0) {
+	      cutoff_user = force->numeric(FLERR,arg[10]);
+	      if (cutoff_user <= 0.0) cutflag = 0;
+	      else cutflag = 1;
+	    } else error->all(FLERR,"Illegal compute threebody command");
+	  }
+	} else error->all(FLERR,"Illegal compute threebody command");
+      }
+    } else if (strcmp(arg[5],"condense") == 0) {
+      if (strcmp(arg[6],"yes")==0) { 
+	condenseflag = 1;
+      }
+      if (narg > 7) {
+	if (strcmp(arg[7],"cutoff") == 0) {
+	  cutoff_user = force->numeric(FLERR,arg[8]);
+	  if (cutoff_user <= 0.0) cutflag = 0;
+	  else cutflag = 1;
+	  if (narg == 11) {
+	    if (strcmp(arg[9],"lower_cutoff") == 0) {
+	      lower_cut = force->numeric(FLERR,arg[10]);
+	      if (lower_cut <= 0.0) lower_cut = 0;
+	    } else error->all(FLERR,"Illegal compute threebody command");
+	  }
+	} else if (strcmp(arg[7],"lower_cutoff") == 0) {
+	  lower_cut = force->numeric(FLERR,arg[8]);
+	  if (lower_cut <= 0.0) lower_cut = 0;
+	  if (narg == 11) {
+	    if (strcmp(arg[9],"cutoff") == 0) {
+	      cutoff_user = force->numeric(FLERR,arg[10]);
+	      if (cutoff_user <= 0.0) cutflag = 0;
+	      else cutflag = 1;
+	    } else error->all(FLERR,"Illegal compute threebody command");
+	  }
+	} else error->all(FLERR,"Illegal compute threebody command");
+      }
     } else error->all(FLERR,"Illegal compute threebody command");
   }
+
+  printf("lower_cut = %f, cutoff_user = %f, condenseflag = %d\n",
+	 lower_cut,cutoff_user,condenseflag);
   if (force->newton_pair) {
     error->all(FLERR,"compute threebody command is incompatible with "
 	       "newton pair being on.");
-  }  
+  }
+
   // pairwise args, fix it to be always one set of pairs for now,
   // but might change this later to deal with density differences
 
   npairs = 1;
 
 
-  //nbin_total = length
+  int length;
+
+  deltheta = MY_PI/nbin_theta;
+
+  delthetainv = 1.0/deltheta;
+
+
   
-  size_array_rows = nbin_total;
+  if (condenseflag && cutflag) {
+    deldist = (cutoff_user - lower_cut) / nbin_dist;
+    length = length_of_array();
+    size_array_rows = length;
+  } else {
+    if (condenseflag) {
+      error->all(FLERR,"compute threebody command requires a "
+		 "user-specified cutoff in order to condense the "
+		 "output.");
+    }
+    size_array_rows = nbin_total;
+  }
+
   size_array_cols = 4;
 
+  
   int ntypes = atom->ntypes;
   if (ntypes != 1) {
     error->all(FLERR,"Cannot compute threebody for system with multiple "
@@ -111,12 +213,12 @@ ComputeThreeBody::ComputeThreeBody(LAMMPS *lmp, int narg, char **arg) :
 
   memory->create(hist,nbin_theta,nbin_dist,nbin_dist,"rdf:hist");
   memory->create(histall,nbin_theta,nbin_dist,nbin_dist,"rdf:histall");
-  memory->create(array,nbin_total,4,"rdf:array");
+  memory->create(array,size_array_rows,size_array_cols,"rdf:array");  
   typecount = new int[ntypes+1];
   icount = new int[npairs];
   jcount = new int[npairs];
   duplicates = new int[npairs];
-
+  
   dynamic = 0;
   natoms_old = 0;
 }
@@ -167,17 +269,13 @@ void ComputeThreeBody::init()
 		       "cutoff - "
                        "forcing a needless neighbor list build");
 
-    deldist = cutoff_user / nbin_dist;
-  } else deldist = force->pair->cutforce / nbin_dist;
+    deldist = (cutoff_user - lower_cut) / nbin_dist;
+  } else deldist = (force->pair->cutforce - lower_cut) / nbin_dist;
 
   deldistinv = 1.0/deldist;
 
-  deltheta = MY_PI/nbin_theta;
-
-  delthetainv = 1.0/deltheta;
 
   // since this file is going to be huge, don't include coordinates in it.
-
 
   //  for (int i = 0; i < nbin; i++)
   //array[i][0] = (i+0.5) * delr;
@@ -382,9 +480,9 @@ void ComputeThreeBody::compute_array()
 	
 	theta = acos((xij*xik + yij*yik + zij*zik)/(rij*rik));
 
-	ij_bin = static_cast<int> (rij*deldistinv);
-	ik_bin = static_cast<int> (rik*deldistinv);
-	dum_jk_bin = static_cast<int> (rjk*deldistinv);
+	ij_bin = static_cast<int> ((rij-lower_cut)*deldistinv);
+	ik_bin = static_cast<int> ((rik-lower_cut)*deldistinv);
+	dum_jk_bin = static_cast<int> ((rjk-lower_cut)*deldistinv);
 	theta_bin = static_cast<int> (theta*delthetainv);
 	
 	if (ij_bin >= nbin_dist || ik_bin >=nbin_dist
@@ -429,7 +527,11 @@ void ComputeThreeBody::compute_array()
     normfac = static_cast<double>(icount[0]);
     normfac = normfac*normfac*normfac;
 
-    set_array(constant, normfac);
+    if (condenseflag) {
+      set_condensed_array(constant, normfac);
+    } else {
+      set_array(constant, normfac);
+    }
 	
   }
   
@@ -461,22 +563,20 @@ void ComputeThreeBody::compute_array()
 
 int ComputeThreeBody::length_of_array()
 {
-  double cutoff;
-  if (cutflag) {
-    cutoff=cutoff_user;
-  } else {
-    cutoff = force->pair->cutforce;
-  }
+  double cutoff = cutoff_user;
+
   double rij, rik, theta;
+  double rjk;
   
   int count = 0;
   for (int i = 0; i < nbin_theta; i++) {
     for (int j = 0; j < nbin_dist; j++) {
       for (int k = 0; k < nbin_dist; k++) {
 	theta = (i + 0.5)*deltheta;
-	rij = (j + 0.5)*deldist;
-	rik = (k + 0.5)*deldist;
-	if (compute_rjk(rij,rik,theta) < cutoff) {
+	rij = (j + 0.5)*deldist+lower_cut;
+	rik = (k + 0.5)*deldist+lower_cut;
+	rjk = compute_rjk(rij,rik,theta);
+	if (rjk < cutoff) {
 	  count += 1;
 	}
       }
@@ -515,8 +615,8 @@ void ComputeThreeBody::set_array(double constant, double normfac)
 	}
 	flat_index = ik_bin + (ij_bin+ theta_bin * nbin_dist) *nbin_dist;
 	array[flat_index][0] = (theta_bin + 0.5)*deltheta;
-	array[flat_index][1] = (ij_bin + 0.5)*deldist;
-	array[flat_index][2] = (ik_bin + 0.5)*deldist;
+	array[flat_index][1] = (ij_bin + 0.5)*deldist+lower_cut;
+	array[flat_index][2] = (ik_bin + 0.5)*deldist+lower_cut;
 	array[flat_index][3] = gr;
       }
     }
@@ -524,6 +624,52 @@ void ComputeThreeBody::set_array(double constant, double normfac)
 
   return;
 }
+
+void ComputeThreeBody::set_condensed_array(double constant, double normfac)
+{
+  double ulower,uupper,vlower,vupper;
+  double vfrac;
+  double cutoff = cutoff_user;
+
+  int theta_bin,ij_bin,ik_bin;
+  double gr;
+  double rij,rik,rjk,theta;
+
+  int flat_index = 0;
+  for (theta_bin = 0; theta_bin < nbin_theta; theta_bin ++ ) {
+    
+    for (ij_bin = 0; ij_bin < nbin_dist; ij_bin++) {
+      ulower = ij_bin*deldist;
+      uupper = (ij_bin+1)*deldist;
+      for (ik_bin = 0; ik_bin < nbin_dist; ik_bin++) {
+	theta = (theta_bin + 0.5)*deltheta;
+	rij = (ij_bin + 0.5)*deldist+lower_cut;
+	rik = (ik_bin + 0.5)*deldist+lower_cut;
+	rjk = compute_rjk(rij,rik,theta);
+	if (rjk < cutoff) {
+	  vlower = ik_bin*deldist;
+	  vupper = (ik_bin+1)*deldist;	  
+	  vfrac = (constant * (uupper*uupper - ulower*ulower)/2.0
+		   * (vupper*vupper - vlower*vlower)/2.0);
+
+	  if (vfrac * normfac != 0.0) {
+	    gr = histall[theta_bin][ij_bin][ik_bin]/(vfrac *normfac);
+	  } else {
+	    gr = 0.0;
+	  }
+	  array[flat_index][0] = theta;
+	  array[flat_index][1] = rij;
+	  array[flat_index][2] = rik;
+	  array[flat_index][3] = gr;
+	  flat_index += 1;
+	}
+      }
+    }
+  }
+
+  return;
+}
+
 
 double ComputeThreeBody::compute_rjk(double rij, double rik, double theta)
 {

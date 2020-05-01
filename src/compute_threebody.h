@@ -36,11 +36,13 @@ class ComputeThreeBody : public Compute {
   int nbin_dist;                 // # of u, v bins (distance bins)
   int nbin_theta;                // # of theta bins
   int cutflag;                   // user cutoff flag
+  int condenseflag;              // whether to condense output array
   int npairs;                    // # of rdf pairs
   bigint nbin_total;             // nbin_dist*nbin_dist*nbin_theta
   double deldist,deldistinv;     // bin width and its inverse for distance
   double deltheta,delthetainv;   // bin width and its inverse for angle
   double cutoff_user;            // user-specified cutoff
+  double lower_cut;              // user-specified lower cutoff (optional)
   double mycutneigh;             // user-specified cutoff + neighbor skin
   int ***rdfpair;                // map 2 type pair to rdf pair for each histo
   int nrdfpair;                  // # of histograms for pair
@@ -59,6 +61,7 @@ class ComputeThreeBody : public Compute {
   int length_of_array();
   double compute_rjk(double,double,double);
   void set_array(double, double);
+  void set_condensed_array(double, double);
 };
 
 }
