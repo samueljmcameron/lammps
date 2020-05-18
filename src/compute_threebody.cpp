@@ -481,27 +481,39 @@ void ComputeThreeBody::compute_array()
 	
 	dumcostheta = (xij*xik + yij*yik + zij*zik)/(rij*rik);
 
+	ij_bin = static_cast<int> ((rij-lower_cut)*deldistinv);
+	ik_bin = static_cast<int> ((rik-lower_cut)*deldistinv);
+	dum_jk_bin = static_cast<int> ((rjk-lower_cut)*deldistinv);
+
+
 	// have to add in this check in case r_ij and r_ik are
 	// perfectly collinear, and then round off error might
 	// make |dumcostheta| slightly greater than one
 	if (dumcostheta > 1.0) {
 	  dumcostheta = 1.0;
+	  //theta = acos(dumcostheta);
+	  //theta_bin = 0;
 	} else if (dumcostheta < -1.0) {
 	  dumcostheta = -1.0;
+	  //theta = acos(dumcostheta);
+	  //theta_bin = nbin_theta-1;
 	}
 	
 	theta = acos(dumcostheta);
 
-	ij_bin = static_cast<int> ((rij-lower_cut)*deldistinv);
-	ik_bin = static_cast<int> ((rik-lower_cut)*deldistinv);
-	dum_jk_bin = static_cast<int> ((rjk-lower_cut)*deldistinv);
-	theta_bin = static_cast<int> (theta*delthetainv);
+
+	theta_bin = static_cast<int> (theta*delthetainv);	
+
+	// when dumcostheta = -1 necessary to check for this
+	if (theta_bin == nbin_theta) {
+	  theta_bin = nbin_theta -1;
+	}
 	
 	if (ij_bin >= nbin_dist || ik_bin >=nbin_dist
 	    || dum_jk_bin >= nbin_dist) continue;
 	if (theta_bin >= nbin_theta) {
 	  printf("theta = %f, theta_bin = %d\n",theta,theta_bin);
-	  error->all(FLERR,"theta > 3.1415 somehow? "
+	  error->one(FLERR,"theta > 3.1415 somehow? "
 		     "Error in compute threebody.");
 	}
 
@@ -545,7 +557,7 @@ void ComputeThreeBody::compute_array()
     }
 	
   }
-  
+  printf("time = %ld\n",update->ntimestep);
   /*
   else (domain->dimension == 3) {
     constant = 4.0*MY_PI / (3.0*domain->xprd*domain->yprd*domain->zprd);
@@ -677,7 +689,6 @@ void ComputeThreeBody::set_condensed_array(double constant, double normfac)
       }
     }
   }
-
   return;
 }
 
