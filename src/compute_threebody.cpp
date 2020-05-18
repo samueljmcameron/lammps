@@ -377,6 +377,7 @@ void ComputeThreeBody::compute_array()
   double xtmp,ytmp,ztmp;
   double xij,yij,zij,xik,yik,zik,rij,rik,rjk,theta;
   int *ilist,*jlist,*numneigh,**firstneigh;
+  double dumcostheta;
   double factor_lj,factor_coul;
 
   double denom;
@@ -478,7 +479,18 @@ void ComputeThreeBody::compute_array()
 	rjk = sqrt((xik-xij)*(xik-xij)
 		   +(yik-yij)*(yik-yij)+(zik-zij)*(zik-zij));
 	
-	theta = acos((xij*xik + yij*yik + zij*zik)/(rij*rik));
+	dumcostheta = (xij*xik + yij*yik + zij*zik)/(rij*rik);
+
+	// have to add in this check in case r_ij and r_ik are
+	// perfectly collinear, and then round off error might
+	// make |dumcostheta| slightly greater than one
+	if (dumcostheta > 1.0) {
+	  dumcostheta = 1.0;
+	} else if (dumcostheta < -1.0) {
+	  dumcostheta = -1.0;
+	}
+	
+	theta = acos(dumcostheta);
 
 	ij_bin = static_cast<int> ((rij-lower_cut)*deldistinv);
 	ik_bin = static_cast<int> ((rik-lower_cut)*deldistinv);
@@ -492,7 +504,6 @@ void ComputeThreeBody::compute_array()
 	  error->all(FLERR,"theta > 3.1415 somehow? "
 		     "Error in compute threebody.");
 	}
-
 
 	hist[theta_bin][ij_bin][ik_bin] += 1.0;
 
