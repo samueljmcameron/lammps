@@ -450,7 +450,7 @@ void ComputeHISTOGRAMS::compute_array()
         rupper = (ibin+1)*delr;
         vfrac = constant * (rupper*rupper*rupper - rlower*rlower*rlower);
         if (vfrac * normfac != 0.0) {
-
+	  /*
           gr = histall[m][ibin] / (vfrac * normfac * icount[m]);
 	  if (histall[m][ibin] > 1e-14) {
 	    uij2 = histall[m+npairs][ibin] / histall[m][ibin];
@@ -463,8 +463,8 @@ void ComputeHISTOGRAMS::compute_array()
 	    tr_hat_uijrij = 0;
 	    uijrij = 0;
 	  }
+	  */
 
-	  /*
           gr = histall[m][ibin] / (vfrac * normfac * icount[m]);
 	  uij2 = histall[m+npairs][ibin] / (vfrac * normfac * icount[m]);
 	  hat_uijrij = histall[m+2*npairs][ibin] / (vfrac * normfac
@@ -472,7 +472,7 @@ void ComputeHISTOGRAMS::compute_array()
 	  tr_hat_uijrij = histall[m+3*npairs][ibin] / (vfrac * normfac
 						       * icount[m]);
 	  uijrij = histall[m+4*npairs][ibin] / (vfrac * normfac * icount[m]);
-	  */
+
 	} else {
 	  gr = 0.0;
 	  uij2 = 0.0;
@@ -505,7 +505,7 @@ void ComputeHISTOGRAMS::compute_array()
         rupper = (ibin+1)*delr;
         vfrac = constant * (rupper*rupper - rlower*rlower);
         if (vfrac * normfac != 0.0) {
-
+	  /*
           gr = histall[m][ibin] / (vfrac * normfac * icount[m]);
 	  if (histall[m][ibin] > 1e-14) {
 	    uij2 = histall[m+npairs][ibin] / histall[m][ibin];
@@ -518,7 +518,7 @@ void ComputeHISTOGRAMS::compute_array()
 	    tr_hat_uijrij = 0;
 	    uijrij = 0;
 	  }
-	  /*
+	  */
 
           gr = histall[m][ibin] / (vfrac * normfac * icount[m]);
 	  uij2 = histall[m+npairs][ibin] / (vfrac * normfac * icount[m]);
@@ -527,7 +527,7 @@ void ComputeHISTOGRAMS::compute_array()
 	  tr_hat_uijrij = histall[m+3*npairs][ibin] / (vfrac * normfac
 						       * icount[m]);
 	  uijrij = histall[m+4*npairs][ibin] / (vfrac * normfac * icount[m]);
-	  */
+
 	} else {
 	  gr = 0.0;
 	  uij2 = 0.0;

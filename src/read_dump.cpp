@@ -42,7 +42,7 @@ using namespace LAMMPS_NS;
 
 // also in reader_native.cpp
 
-enum{ID,TYPE,X,Y,Z,VX,VY,VZ,Q,IX,IY,IZ,FX,FY,FZ};
+enum{ID,TYPE,X,Y,Z,VX,VY,VZ,Q,IX,IY,IZ,FX,FY,FZ,MUX,MUY,MUZ};
 enum{UNSET,NOSCALE_NOWRAP,NOSCALE_WRAP,SCALE_NOWRAP,SCALE_WRAP};
 enum{NOADD,YESADD,KEEPADD};
 
@@ -863,6 +863,7 @@ void ReadDump::process_atoms()
   double **v = atom->v;
   double *q = atom->q;
   double **f = atom->f;
+  double **mu = atom->mu;
   tagint *tag = atom->tag;
   imageint *image = atom->image;
   tagint map_tag_max = atom->map_tag_max;
@@ -935,6 +936,15 @@ void ReadDump::process_atoms()
         case FZ:
           f[m][2] = fields[i][ifield];
           break;
+	case MUX:
+	  mu[m][0] = fields[i][ifield];
+	  break;
+	case MUY:
+	  mu[m][1] = fields[i][ifield];
+	  break;
+	case MUZ:
+	  mu[m][2] = fields[i][ifield];
+	  break;
         }
       }
 
@@ -1026,6 +1036,7 @@ void ReadDump::process_atoms()
     tag = atom->tag;
     v = atom->v;
     q = atom->q;
+    mu = atom->mu;
     image = atom->image;
 
     // set atom attributes from other dump file fields
@@ -1059,6 +1070,15 @@ void ReadDump::process_atoms()
       case IZ:
         zbox = static_cast<int> (fields[i][ifield]);
         break;
+      case MUX:
+	mu[m][0] = fields[i][ifield];
+	break;
+      case MUY:
+	mu[m][1] = fields[i][ifield];
+	break;
+      case MUZ:
+	mu[m][2] = fields[i][ifield];
+	break;
       }
 
       // reset image flag in case changed by ix,iy,iz fields
@@ -1209,6 +1229,10 @@ int ReadDump::fields_and_keywords(int narg, char **arg)
     if (type < 0) break;
     if (type == Q && !atom->q_flag)
       error->all(FLERR,"Read dump of atom property that isn't allocated");
+    if ((type == MUX && !atom->mu_flag) || (type == MUY && !atom->mu_flag)
+	|| (type == MUZ && !atom->mu_flag))
+      error->all(FLERR,"Read dump of atom property (dipole) "
+		 "that isn't allocated");
     fieldtype[nfield++] = type;
     iarg++;
   }
@@ -1221,7 +1245,8 @@ int ReadDump::fields_and_keywords(int narg, char **arg)
   if (dimension == 2) {
     for (int i = 0; i < nfield; i++)
       if (fieldtype[i] == Z || fieldtype[i] == VZ ||
-          fieldtype[i] == IZ || fieldtype[i] == FZ)
+          fieldtype[i] == IZ || fieldtype[i] == FZ ||
+	  fieldtype[i] == MUZ)
         error->all(FLERR,"Illegal read_dump command");
   }
 
@@ -1349,6 +1374,9 @@ int ReadDump::whichtype(char *str)
   else if (strcmp(str,"fx") == 0) type = FX;
   else if (strcmp(str,"fy") == 0) type = FY;
   else if (strcmp(str,"fz") == 0) type = FZ;
+  else if (strcmp(str,"mux") == 0) type = MUX;
+  else if (strcmp(str,"muy") == 0) type = MUY;
+  else if (strcmp(str,"muz") == 0) type = MUZ;
   return type;
 }
 
