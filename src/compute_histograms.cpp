@@ -416,7 +416,7 @@ void ComputeHISTOGRAMS::compute_array()
 	  // add to <|\hat{u}_{ij} - (\hat{u}_{ij} . \hat{r}_{ij}) \hat{r}_{ij}|>
 	  hist[m + 3*npairs][ibin] += sqrt(1 - hat_udotr_tmp*hat_udotr_tmp);
 	  // add to <u_{ij} . r_{ij}>
-	  hist[m + 4*npairs][ibin] += udotr_tmp;
+	  hist[m + 4*npairs][ibin] += udotr_tmp/r;
 
         }
       }
