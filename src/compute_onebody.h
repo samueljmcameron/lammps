@@ -29,28 +29,26 @@ class ComputeOneBody : public Compute {
   ComputeOneBody(class LAMMPS *, int, char **);
   ~ComputeOneBody();
   void init();
-  void init_list(int, class NeighList *);
   void compute_array();
 
  private:
-  int nbin;                 // # of bins (distance bins)
-  int cutflag;                   // user cutoff flag
-  double delr,delrinv;     // bin width and its inverse for distance
-  double radius;                 // radius of container
-  double mycutneigh;             // user-specified cutoff + neighbor skin
-  double **hist;                 // histogram bins
-  double **histall;              // summed histogram bins across all procs
+  int nbin;             // # of bins (distance bins)
+  int hist_rows;        // # of different rho_i(r) (i = 0 to atom->ntypes)
+  int cutflag;          // user cutoff flag
+  double delr,delrinv;  // bin width and its inverse for distance
+  double radius;        // radius of container
+  double mycutneigh;    // user-specified cutoff + neighbor skin
+  double **hist;        // histogram bins
+  double **histall;     // summed histogram bins across all procs
 
   int *typecount;
   int *icount;
 
 
-  class NeighList *list; // half neighbor list
   void init_norm();
   bigint natoms_old;
 
-  double compute_rjk(double,double,double);
-  void set_array(double, double);
+  void set_array(double, double,int);
 };
 
 }

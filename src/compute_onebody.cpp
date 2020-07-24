@@ -60,17 +60,28 @@ ComputeOneBody::ComputeOneBody(LAMMPS *lmp, int narg, char **arg) :
 
   
   int ntypes = atom->ntypes;
-  if (ntypes != 1) {
-    error->all(FLERR,"Cannot compute onebody for system with multiple "
-	       "atom types.");
-  }
 
   // store densities for each type of atom, plus the density of all.
-  size_array_cols = 2;
+  if (ntypes > 1) {
+    hist_rows = 1 + ntypes;
+    size_array_cols = 2 + ntypes;
+  } else {
+    hist_rows = 1;
+    size_array_cols = 2 ;
+  }
 
-  memory->create(hist,1,nbin,"rdf:hist");
-  memory->create(histall,1,nbin,"rdf:histall");
-  memory->create(array,size_array_rows,size_array_cols,"rdf:array");  
+  memory->create(hist,hist_rows,nbin,"rdf:hist");
+  memory->create(histall,hist_rows,nbin,"rdf:histall");
+  memory->create(array,size_array_rows,size_array_cols,"rdf:array");
+
+  // type count will count the number of atoms of each type found
+  // locally, indexed using atom->type
+  typecount = new int[ntypes + 1];
+  // icount counts the number of atoms found (first locally, then globally)
+  // of each type, indexed from 0 to ntypes + 1. icount[0] is the number
+  // of total atoms, and icount[i>0] is number of atoms of type i. If
+  // ntypes ==1 , then this array will be one too big.
+  icount = new int[ntypes+1];
   
   dynamic = 0;
   natoms_old = 0;
@@ -83,8 +94,8 @@ ComputeOneBody::~ComputeOneBody()
   memory->destroy(hist);
   memory->destroy(histall);
   memory->destroy(array);
-  memory->destroy(typecount);
-  memory->destroy(icount);
+  delete [] typecount;
+  delete [] icount;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -92,11 +103,17 @@ ComputeOneBody::~ComputeOneBody()
 void ComputeOneBody::init()
 {
 
+  for (int i = 0; i < nbin; i++)
+    array[i][0] = (i+0.5) * delr;
+
+
   natoms_old = atom->natoms;
   dynamic = group->dynamic[igroup];
   if (dynamic_user) dynamic = 1;
   init_norm();
 
+
+  // NO NEEED FOR NEIGHBOR LIST!!
   // need an occasional half neighbor list
   // if user specified, request a cutoff = cutoff_user + skin
   // skin is included b/c Neighbor uses this value similar
@@ -105,32 +122,24 @@ void ComputeOneBody::init()
   //   (until next reneighbor), so it needs to contain atoms further
   //   than cutoff_user apart, just like a normal neighbor list does
 
-  int irequest = neighbor->request(this,instance_me);
-  neighbor->requests[irequest]->pair = 0;
-  neighbor->requests[irequest]->compute = 1;
-  neighbor->requests[irequest]->occasional = 1;
-  if (cutflag) {
-    neighbor->requests[irequest]->cut = 1;
-    neighbor->requests[irequest]->cutoff = mycutneigh;
-  }
-  // need full neighbor list
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->full = 1;
+
+  //int irequest = neighbor->request(this,instance_me);
+  //neighbor->requests[irequest]->pair = 0;
+  //neighbor->requests[irequest]->compute = 1;
+  //neighbor->requests[irequest]->occasional = 1;
+  //if (cutflag) {
+  //  neighbor->requests[irequest]->cut = 1;
+  //  neighbor->requests[irequest]->cutoff = mycutneigh;
+  //}
+
   
-}
-
-/* ---------------------------------------------------------------------- */
-
-void ComputeOneBody::init_list(int /*id*/, NeighList *ptr)
-{
-  list = ptr;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void ComputeOneBody::init_norm()
 {
-  int i,j,m;
+  int i;
 
   // count atoms of each type that are also in group
 
@@ -139,21 +148,27 @@ void ComputeOneBody::init_norm()
   const int * const mask = atom->mask;
   const int * const type = atom->type;
 
-  //here
-  typecount[1] = 0;
-  for (i = 0; i < nlocal; i++)
+
+  // typecount[i] = # number of atoms of each type found locally
+  for (i = 1; i <= ntypes; i++) typecount[i] = 0;
+  for (i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) typecount[type[i]]++;
+  }
+    
+  // icount[m] = # of atoms of type m found locally
 
-  // icount = # of I atoms participating in density
+  for (i = 1; i <= ntypes; i++) icount[i] = typecount[i];
 
-  //here
+  // icount[0] = total # found locally
   icount[0] = 0;
-  icount[0] += typecount[1];
+  for (i = 1; i <= ntypes; i++) icount[0] += icount[i];
 
-  //here
-  int *scratch = new int[1];
-  MPI_Allreduce(icount,scratch,1,MPI_INT,MPI_SUM,world);
-  icount[0] = scratch[0];
+  int *scratch = new int[ntypes+1];
+  MPI_Allreduce(icount,scratch,ntypes+1,MPI_INT,MPI_SUM,world);
+  for (i = 0; i <= ntypes; i++) {
+    icount[i] = scratch[i];
+    //printf("total number of atoms of type %d = %d\n",i,icount[i]);
+  }
 
   delete [] scratch;
 }
@@ -167,17 +182,6 @@ void ComputeOneBody::compute_array()
 //
 // ======================================================================
 {
-  int i,j,m,ii,jj,inum,jnum,itype,jtype,ipair,jpair;
-  int i_bin;
-  int k,kk,knum,ktype,kpair;
-  double xtmp,ytmp,ztmp;
-  double xij,yij,zij,xik,yik,zik,rij,rik,rjk,theta;
-  int *ilist,*jlist,*numneigh,**firstneigh;
-  double dumcostheta;
-  double factor_lj,factor_coul;
-  double r;
-
-  double denom;
   
   if (natoms_old != atom->natoms) {
     dynamic = 1;
@@ -192,131 +196,99 @@ void ComputeOneBody::compute_array()
 
   invoked_array = update->ntimestep;
 
-  // invoke full neighbor list (will copy or build if necessary)
-
-  neighbor->build_one(list);
-
-  inum = list->inum;
-  ilist = list->ilist;
-  numneigh = list->numneigh;
-  firstneigh = list->firstneigh;
-
-  // zero the histogram counts
-
-  for (i = 0; i < 1; i++) {
-    for (j = 0; j < nbin; j++) {
-      hist[i][j] = 0;
-    }
-  }
-  // tally the three body
-  // both atom i and j must be in fix group
-  // itype,jtype must have been specified by user
-  // consider I,J as one interaction even if neighbor pair is stored on 2 procs
-  // tally I,J pair each time I is central atom, and each time J is central
-
+  // compute 
   double **x = atom->x;
   int *type = atom->type;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
+  int ntypes = atom->ntypes;
 
+  // zero the histogram counts
+
+  for (int i = 0; i < hist_rows; i++) {
+    for (int j = 0; j < nbin; j++) {
+      hist[i][j] = 0;
+    }
+  }
+  
   double *special_coul = force->special_coul;
   double *special_lj = force->special_lj;
 
+  double xp,yp,zp, r;
+  int ibin;
+  int itype;
+
   // loop over full neighbor list of my atoms
-  for (ii = 0; ii < inum; ii++) {
-    i = ilist[ii];
+  for (int i = 0; i < nlocal; i++) {
     if (!(mask[i] & groupbit)) continue;
-    xtmp = x[i][0];
-    ytmp = x[i][1];
-    ztmp = x[i][2];
 
+    itype = type[i];
+    
+    xp = x[i][0];
+    yp = x[i][1];
+    zp = x[i][2];
 
+    r = sqrt(xp*xp+yp*yp+zp*zp);
 
-    r = sqrt(xtmp*xtmp+ytmp*ytmp+ztmp*ztmp);
-
-    i_bin = static_cast<int> (r*delrinv);
-
-
+    ibin = static_cast<int> (r*delrinv);
 	
-    if (i_bin >= nbin) continue;
+    if (ibin >= nbin) continue;
 
-    hist[0][i_bin] += 1.0;
+    hist[0][ibin] += 1.0;
+    if (ntypes > 1)
+      hist[itype][ibin] += 1.0;
 
   }
 
   // sum histograms across procs
 
-  MPI_Allreduce(hist[0],histall[0],1*nbin,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(hist[0],histall[0],hist_rows*nbin,MPI_DOUBLE,MPI_SUM,world);
 
   // convert counts to g(r) and coord(r) and copy into output array
   // vfrac = fraction of volume in shell m
 
   
-  double constant,vfrac,gr,ulower,uupper,vlower,vupper,normfac;
+  double prefac, normfac;
 
   if (domain->dimension==2) {
-    constant = (domain->xprd*domain->yprd);
-    constant = MY_PI/constant;
+    prefac = MY_PI*radius*radius;
+    prefac = MY_PI/prefac;
 
     //normfac = (icount[0] > 0) ? static_cast<double>(jcount[0])
     // - static_cast<double>(duplicates[0])/icount[0] : 0.0;
     normfac = static_cast<double>(icount[0]);
-    normfac = normfac;
+    set_array(prefac, normfac,0);
 
-    set_array(constant, normfac);
-	
-  }
-  /*
-  else (domain->dimension == 3) {
-    constant = 4.0*MY_PI / (3.0*domain->xprd*domain->yprd*domain->zprd);
-
-    for (m = 0; m < npairs; m++) {
-      normfac = (icount[m] > 0) ? static_cast<double>(jcount[m])
-                - static_cast<double>(duplicates[m])/icount[m] : 0.0;
-      ncoord = 0.0;
-      for (ibin = 0; ibin < nbin; ibin++) {
-        rlower = ibin*delr;
-        rupper = (ibin+1)*delr;
-        vfrac = constant * (rupper*rupper*rupper - rlower*rlower*rlower);
-        if (vfrac * normfac != 0.0)
-          gr = histall[m][ibin] / (vfrac * normfac * icount[m]);
-        else gr = 0.0;
-        if (icount[m] != 0)
-          ncoord += gr * vfrac * normfac;
-        array[ibin][1+2*m] = gr;
-        array[ibin][2+2*m] = ncoord;
+    if (ntypes > 1) {
+      for (int i = 1; i < ntypes; i++) {
+	normfac = static_cast<double>(icount[i]);
+	set_array(prefac, normfac,i);
       }
     }
+  }//  else (domain->dimension == 3) {
 
-    }
-  */
 }
 
-void ComputeOneBody::set_array(double constant, double normfac)
+void ComputeOneBody::set_array(double prefac, double normfac,int a_type)
 {
   double ulower,uupper;
   double vfrac;
 
-  int i_bin;
-  double gr;
+  int ibin;
+  double rhor;
+  int col = a_type + 1;
       
-  for (i_bin = 0; i_bin < nbin; i_bin++) {
-      ulower = i_bin*delr;
-      uupper = (i_bin+1)*delr;
-      vfrac = (constant * (uupper*uupper - ulower*ulower)/2.0);
+  for (ibin = 0; ibin < nbin; ibin++) {
+      ulower = ibin*delr;
+      uupper = (ibin+1)*delr;
+      vfrac = (prefac * (uupper*uupper - ulower*ulower)/2.0);
       if (vfrac * normfac != 0.0) {
-	gr = histall[0][i_bin]/(vfrac *normfac);
+	rhor = histall[a_type][ibin]/(vfrac *normfac);
       } else {
-	gr = 0.0;
+	rhor = 0.0;
       }
-      array[i_bin][0] = (i_bin + 0.5)*delr;
-      array[i_bin][1] = gr;
+      array[ibin][col] = rhor;
   }
 
   return;
-}
-
-double ComputeOneBody::compute_rjk(double rij, double rik, double theta)
-{
-  return sqrt(rij*rij + rik*rik - 2*rij*rik*cos(theta));
 }
