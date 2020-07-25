@@ -13,7 +13,7 @@
 
 #ifdef COMPUTE_CLASS
 
-ComputeStyle(threebody,ComputeThreeBodyAngleIntegral)
+ComputeStyle(threebodyangleintegral,ComputeThreeBodyAngleIntegral)
 
 #else
 
