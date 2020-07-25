@@ -65,7 +65,7 @@ ComputeThreeBodyAngleIntegral::ComputeThreeBodyAngleIntegral(LAMMPS *lmp, int na
   // nargpair = # of pairwise args, starting at iarg = 5
 
   cutflag = 0;
-  lower_cut = 0;
+  lower_cut = 0.0;
 
   if (narg > 5) {
     if (strcmp(arg[5],"cutoff") == 0) {
@@ -114,7 +114,8 @@ ComputeThreeBodyAngleIntegral::ComputeThreeBodyAngleIntegral(LAMMPS *lmp, int na
 
   size_array_rows = nbin_total;
 
-  size_array_cols = 4;
+  // three columns, one for u, one for v, and one for int_0^2\pi g^{3} d\theta
+  size_array_cols = 3;
 
   
   int ntypes = atom->ntypes;
@@ -324,8 +325,15 @@ void ComputeThreeBodyAngleIntegral::compute_array()
 
   invoked_array = update->ntimestep;
 
-  // invoke full neighbor list (will copy or build if necessary)
+  int irequest = neighbor->request(this,instance_me);
 
+
+  // printing to check if full list is requested (as it should be)!
+  printf("half-list value = %d, full-list value = %d\n",
+	 neighbor->requests[irequest]->half,
+	 neighbor->requests[irequest]->full);
+  
+  // invoke full neighbor list (will copy or build if necessary)  
   neighbor->build_one(list);
 
   inum = list->inum;
@@ -482,7 +490,6 @@ void ComputeThreeBodyAngleIntegral::compute_array()
     set_array(constant, normfac);
     
   }
-  printf("time = %ld\n",update->ntimestep);
   /*
   else (domain->dimension == 3) {
     constant = 4.0*MY_PI / (3.0*domain->xprd*domain->yprd*domain->zprd);
