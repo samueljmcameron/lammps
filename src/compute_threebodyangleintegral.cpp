@@ -325,13 +325,6 @@ void ComputeThreeBodyAngleIntegral::compute_array()
 
   invoked_array = update->ntimestep;
 
-  int irequest = neighbor->request(this,instance_me);
-
-
-  // printing to check if full list is requested (as it should be)!
-  printf("half-list value = %d, full-list value = %d\n",
-	 neighbor->requests[irequest]->half,
-	 neighbor->requests[irequest]->full);
   
   // invoke full neighbor list (will copy or build if necessary)  
   neighbor->build_one(list);
