@@ -66,7 +66,7 @@ ComputeThreeBodyAngleIntegral::ComputeThreeBodyAngleIntegral(LAMMPS *lmp, int na
 
   cutflag = 0;
   lower_cut = 0.0;
-
+  printf("starting!\n");
   if (narg > 5) {
     if (strcmp(arg[5],"cutoff") == 0) {
       cutoff_user = force->numeric(FLERR,arg[6]);
@@ -455,7 +455,7 @@ void ComputeThreeBodyAngleIntegral::compute_array()
 
   // sum histograms across procs
 
-  MPI_Allreduce(hist[0][0],histall[0][0],nbin_total,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(hist[0][0],histall[0][0],nbin_total*nbin_theta,MPI_DOUBLE,MPI_SUM,world);
 
   // convert counts to g(r) and coord(r) and copy into output array
   // vfrac = fraction of volume in shell m
@@ -550,9 +550,10 @@ void ComputeThreeBodyAngleIntegral::set_array(double constant, double normfac)
       array[flat_index][1] = (ik_bin + 0.5)*delr+lower_cut;
       // multiply by two since integration above is only from 0 to pi.
       array[flat_index][2] = 2.0*gr*deltheta;
-      }
+      //printf("gr = %lf\n",gr);
     }
-
+  }
+  
   return;
 }
 
