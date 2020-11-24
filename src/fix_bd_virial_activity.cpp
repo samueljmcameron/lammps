@@ -73,6 +73,7 @@ FixBdVirialActivity::FixBdVirialActivity(LAMMPS *lmp, int narg, char **arg) :
   seed = force->inumeric(FLERR,arg[8]);
   if (seed <= 0) error->all(FLERR,"Fix bd/activity seed must be > 0.");
 
+  unwrapcoords_flag = 0;
   if (narg == 10) {
     if (strcmp(arg[9],"unwrapcoords") == 0) {
       unwrapcoords_flag = 1;
