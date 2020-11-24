@@ -20,7 +20,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include "fix_bd_activity.h"
+#include "fix_bd_virial_activity.h"
 #include "math_extra.h"
 #include "atom.h"
 #include "force.h"
