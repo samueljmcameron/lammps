@@ -43,7 +43,7 @@ FixBdVirialActivity::FixBdVirialActivity(LAMMPS *lmp, int narg, char **arg) :
   virial_flag = 1;
   time_integrate = 1;
   
-  if (narg != 9 || narg != 10)
+  if (narg != 9 && narg != 10)
     error->all(FLERR,"Illegal fix bd/activity command");
 
   if (domain->dimension != 2)
