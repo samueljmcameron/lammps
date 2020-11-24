@@ -251,9 +251,9 @@ void FixBdVirialActivity::pre_force(int vflag)
 	if (unwrapcoords_flag) {
 	  domain->unmap(x[i],image[i],tmp_x);
 	} else {
-	  tmp_x[0] = x[0];
-	  tmp_x[1] = x[1];
-	  tmp_x[2] = x[2];
+	  tmp_x[0] = x[i][0];
+	  tmp_x[1] = x[i][1];
+	  tmp_x[2] = x[i][2];
 	}
 	fsum[0] -= fx*tmp_x[0]+fy*tmp_x[1];
 	fsum[1] += fx;
