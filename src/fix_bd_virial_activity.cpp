@@ -136,7 +136,7 @@ void FixBdVirialActivity::initial_integrate(int vflag)
   double tmp_x[3];
 
   imageint *image = atom->image;
-  int nlocal = atom->nlocal;
+
 
   // energy and virial setup
 
