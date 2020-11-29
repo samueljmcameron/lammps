@@ -30,23 +30,26 @@ class FixBdVirialActivity : public Fix {
   virtual ~FixBdVirialActivity();
   void init();
   void initial_integrate(int);
+  void pre_force(int);
+
   int setmask();
 
  private:
   double dt, sqrtdt;
-  double gamma1,gamma2, gamma3, gamma4;
-  double cosda, sinda, da, dar;
+ protected:
   int seed;
-  int unwrapcoords_flag;
+  double t_start,t_stop,t_target,tsqrt;
   double diff_t;
   double diff_r;
   double activity;
-
- protected:
-
+  double gamma1,gamma2, gamma3, gamma4;
+  double cosda, sinda, da, dar;
   class RanMars *random;
+  void compute_target();
 
-
+  int force_flag;
+  int activity_flag;
+  int unwrapcoords_flag;
 };
 
 }
