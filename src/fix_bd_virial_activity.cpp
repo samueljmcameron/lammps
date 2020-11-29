@@ -43,46 +43,34 @@ FixBdVirialActivity::FixBdVirialActivity(LAMMPS *lmp, int narg, char **arg) :
   virial_flag = 1;
   time_integrate = 1;
   
-  if (narg != 9 && narg != 10)
+  if (narg != 7)
     error->all(FLERR,"Illegal fix bd/activity command");
 
   if (domain->dimension != 2)
-    error->all(FLERR,"Fix bd/activity requires 2d simulation");
+    error->all(FLERR,"Fix bd/virial/activity requires 2d simulation");
 
-  t_start = force->numeric(FLERR,arg[3]);
-  t_target = t_start;
-  t_stop = force->numeric(FLERR,arg[4]);
-  diff_t = force->numeric(FLERR,arg[5]);
+
+  diff_t = force->numeric(FLERR,arg[3]);
   if (diff_t <= 0.0)
-    error->all(FLERR,"Fix bd/activity translational diffusion "
+    error->all(FLERR,"Fix bd/virial/activity translational diffusion "
 	       "coefficient must be > 0.");
 
-  diff_r = force->numeric(FLERR,arg[6]);
+  diff_r = force->numeric(FLERR,arg[4]);
   if (diff_r <= 0.0)
-    error->all(FLERR,"Fix bd/activity rotational diffusion "
+    error->all(FLERR,"Fix bd/virial/activity rotational diffusion "
 	       "coefficient must be > 0.");
   
-  activity = force->numeric(FLERR,arg[7]);
+  activity = force->numeric(FLERR,arg[5]);
   if (activity>0) {
     activity_flag = 1;
   } else if (activity <0) {
-    error->all(FLERR,"Illegal fix bd/activity command");
+    error->all(FLERR,"Illegal fix bd/virial/activity command");
   } else {
     activity_flag = 0;
   }
-  seed = force->inumeric(FLERR,arg[8]);
+  seed = force->inumeric(FLERR,arg[6]);
   if (seed <= 0) error->all(FLERR,"Fix bd/activity seed must be > 0.");
 
-  unwrapcoords_flag = 0;
-  if (narg == 10) {
-    if (strcmp(arg[9],"unwrapcoords") == 0) {
-      unwrapcoords_flag = 1;
-    } else {
-      error->all(FLERR,"Illegal fix bd/activity command");
-    }
-  }
-
-  force_flag = 0;
 
   // initialize Marsaglia RNG with processor-unique seed
   random = new RanMars(lmp,seed + comm->me);
@@ -120,10 +108,6 @@ void FixBdVirialActivity::init()
 
   //TBD: check if muz is zero for all particles
 
-
-  // set square root of temperature
-  compute_target();
-
   gamma1 = diff_t / force->boltz; 
   gamma2 = sqrt( 24 * diff_t );
   gamma3 = sqrt( 24 * diff_r );
@@ -136,20 +120,9 @@ void FixBdVirialActivity::init()
   //  step_respa = ((Respa *) update->integrate)->step;
 
 }
-
-/* ----------------------------------------------------------------------
-   set current t_target and t_sqrt
-------------------------------------------------------------------------- */
-
-void FixBdVirialActivity::compute_target()
+void FixBdVirialActivity::setup(int vflag)
 {
-  double delta = update->ntimestep - update->beginstep;
-  if (delta != 0.0) delta /= update->endstep - update->beginstep;
-
-  // Only homogeneous temperature supported
-  t_target = t_start + delta * (t_stop-t_start);
-  tsqrt = sqrt(t_target);
-
+  pre_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -170,19 +143,16 @@ void FixBdVirialActivity::initial_integrate(int /* vflag */)
   dt = update->dt;
   sqrtdt = sqrt(dt);
 
-  // set square root of temperature
-  compute_target();
-
 
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
 
-      da = (dt * gamma1 * f[i][0] / t_target
+      da = (dt * gamma1 * f[i][0]
 	    +    sqrtdt * gamma2 * (random->uniform()-0.5));
       double dx = da;
       x[i][0] +=  da;
       v[i][0]  =  da/dt;
-      da = (dt * gamma1 * f[i][1] / t_target
+      da = (dt * gamma1 * f[i][1] 
 	    +    sqrtdt * gamma2 * (random->uniform()-0.5));
       x[i][1] +=  da;
       double dy = da;
@@ -226,7 +196,6 @@ void FixBdVirialActivity::pre_force(int vflag)
   // fsum[123] = extra force added to atoms
 
   fsum[0] = fsum[1] = fsum[2] = fsum[3] = 0.0;
-  force_flag = 0;
 
   double **x = atom->x;
   double **mu = atom->mu;
@@ -249,13 +218,9 @@ void FixBdVirialActivity::pre_force(int vflag)
 	f[i][0] += fx;
 	f[i][1] += fy;
 
-	if (unwrapcoords_flag) {
-	  domain->unmap(x[i],image[i],tmp_x);
-	} else {
-	  tmp_x[0] = x[i][0];
-	  tmp_x[1] = x[i][1];
-	  tmp_x[2] = x[i][2];
-	}
+
+	domain->unmap(x[i],image[i],tmp_x);
+
 	fsum[0] -= fx*tmp_x[0]+fy*tmp_x[1];
 	fsum[1] += fx;
 	fsum[2] += fy;
