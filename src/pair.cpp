@@ -1563,34 +1563,31 @@ void Pair::v_tally_ABP_noswim(int i, int j, int nlocal,
 			      double muz_j,double activity,double Dr,
 			      double delx, double dely,double delz)
 {
-  double vact_i[3];
-  double vact_j[3];
+    double vact[3];
   double vswim = 0;
   double d = domain->dimension;
   double dum = 0.5*activity/((d-1)*Dr);
 
   if (vflag_either) {
 
-    vact_i[0] = dum*fpair*delx*mux_i;
-    vact_i[1] = dum*fpair*dely*muy_i;
-    vact_i[2] = dum*fpair*delz*muz_i;
-    vact_j[0] = -1*dum*fpair*delx*mux_j;
-    vact_j[1] = -1*dum*fpair*dely*muy_j;
-    vact_j[2] = -1*dum*fpair*delz*muz_j;
+    vact[0] = dum*fpair*delx*(mux_i-mux_j);
+    vact[1] = dum*fpair*dely*(muy_i-muy_j);
+    vact[2] = dum*fpair*delz*(muz_i-muz_j);
 
     if (vflag_global) {
       if (i < nlocal) {
-	virial[0] += vact_i[0];
-	virial[1] += vact_i[1];
-	virial[2] += vact_i[2];
+        virial[0] += vact[0];
+        virial[1] += vact[1];
+        virial[2] += vact[2];
 
       }
       if (j < nlocal) {
-	virial[0] += vact_j[0];
-	virial[1] += vact_j[1];
-	virial[2] += vact_j[2];
+        virial[0] += vact[0];
+        virial[1] += vact[1];
+        virial[2] += vact[2];
       }
     }
+
 
     if (vflag_atom) {
       if (i < nlocal) {
