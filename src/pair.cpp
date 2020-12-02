@@ -1563,7 +1563,7 @@ void Pair::v_tally_ABP_noswim(int i, int j, int nlocal,
 			      double muz_j,double activity,double Dr,
 			      double delx, double dely,double delz)
 {
-    double vact[3];
+  double vact[3];
   double vswim = 0;
   double d = domain->dimension;
   double dum = 0.5*activity/((d-1)*Dr);
@@ -1591,14 +1591,14 @@ void Pair::v_tally_ABP_noswim(int i, int j, int nlocal,
 
     if (vflag_atom) {
       if (i < nlocal) {
-        vatom[i][0] += vact_i[0];
-        vatom[i][1] += vact_i[1];
-        vatom[i][2] += vact_i[2];
+        vatom[i][0] += vact[0];
+        vatom[i][1] += vact[1];
+        vatom[i][2] += vact[2];
       }
       if (j < nlocal) {
-        vatom[j][0] += vact_j[0];
-        vatom[j][1] += vact_j[1];
-        vatom[j][2] += vact_j[2];
+        vatom[j][0] += vact[0];
+        vatom[j][1] += vact[1];
+        vatom[j][2] += vact[2];
       }
     }
   }
