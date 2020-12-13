@@ -59,11 +59,6 @@ Chapter 4 of :ref:`(Goldstein) <GoldsteinCM1>`), :math:`dW_t` and
 The quaternions :math:`q` of the ellipsoid are updated each timestep from
 the angular velocity vector.
 
-The :doc:`fix_modify <fix_modify>` *virial* option is supported by this
-fix to add the contribution due to the added forces on atoms to the
-system's virial as part of :doc:`thermodynamic output <thermo_style>`.
-The default is *virial no*.
-
 
 If the *rng* keyword is used with the *uniform* value, then the noise
 is generated from a uniform distribution (see
@@ -94,9 +89,16 @@ Restart, fix_modify, output, run start/stop, minimize info
 No information about this fix is written to :doc:`binary restart files <restart>`.
 No global or per-atom quantities are stored
 by this fix for access by various :doc:`output commands <Howto_output>`.
+
+The :doc:`fix_modify <fix_modify>` *virial* option is supported by this
+fix to add the contribution due to the added forces on atoms to the
+system's virial as part of :doc:`thermodynamic output <thermo_style>`.
+The default is *virial no*.
+
 No parameter of this fix can be used with the *start/stop* keywords of
 the :doc:`run <run>` command.  This fix is not invoked during
 :doc:`energy minimization <minimize>`.
+     
 
 Restrictions
 """"""""""""
