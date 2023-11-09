@@ -48,9 +48,6 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
   local_dead_list(nullptr)
 {
 
-  
-  if (narg != 10) error->all(FLERR, "Illegal fix atom/swap command");
-
   // required args
   
   alivetype = utils::inumeric(FLERR, arg[3], false, lmp);

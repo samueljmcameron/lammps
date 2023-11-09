@@ -35,7 +35,14 @@ class FixOrganismBirthDeathLogistic : public Fix {
   void unpack_forward_comm(int, int, double *) override;
 
  private:
-
+  bool birth_from_dead(int);
+  void create_new_atoms(const std::vector<int> &);
+  void delete_dead_atoms();
+  void count_vitals();
+  
+  virtual void procreate(int,int);
+  
+protected:
   class RanMars *rng;
   int alivetype,deadtype;
   int seed;
@@ -51,16 +58,6 @@ class FixOrganismBirthDeathLogistic : public Fix {
   int localalive,localdead;
   int cleanevery;
 
-  void create_new_atoms(const std::vector<int> &);
-  bool birth_from_dead(int);
-
-  void delete_dead_atoms();
-  
-
-  
-  void procreate(int,int);
-
-  void count_vitals();
 };
 
 }    // namespace LAMMPS_NS
