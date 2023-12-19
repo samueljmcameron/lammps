@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://www.lammps.org/ Sandia National Laboratories
-   LAMMPS development team: developers@lammps.org
+   https://www.lammps.org/, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -13,29 +13,31 @@
 
 #ifdef FIX_CLASS
 // clang-format off
-FixStyle(brownian,FixBrownian);
+FixStyle(organism/birthdeath/1D/ratchet,FixOrganismBirthDeath1dRatchet);
 // clang-format on
 #else
 
-#ifndef LMP_FIX_BROWNIAN_H
-#define LMP_FIX_BROWNIAN_H
+#ifndef LMP_FIX_ORGANISM_BIRTHDEATH_1D_RATCHET_H
+#define LMP_FIX_ORGANISM_BIRTHDEATH_1D_RATCHET_H
 
-#include "fix_brownian_base.h"
+#include "fix_organism_birthdeath_1d_projection.h"
 
 namespace LAMMPS_NS {
 
-class FixBrownian : public FixBrownianBase {
+class FixOrganismBirthDeath1dRatchet : public FixOrganismBirthDeath1dProjection {
  public:
-  FixBrownian(class LAMMPS *, int, char **);
-
-  void init() override;
-
+  FixOrganismBirthDeath1dRatchet(class LAMMPS *, int, char **);
+  
+  virtual double force(double) override;
   
  private:
-  template <int Tp_UNIFORM, int Tp_GAUSS, int Tp_2D> void integrate_templated();
-  virtual void call_integrate() override;
+
+  bool first_section(double );
+
+  double height, first_length, second_length, midvertex;
 };
 
 }    // namespace LAMMPS_NS
+
 #endif
 #endif

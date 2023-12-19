@@ -37,7 +37,7 @@ using namespace FixConst;
 FixBrownianBase::FixBrownianBase(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
 {
   time_integrate = 1;
-
+  dynamic_group_allow = 1;
   noise_flag = 1;
   gaussian_noise_flag = 0;
   gamma_t_flag = gamma_r_flag = 0;
@@ -45,6 +45,7 @@ FixBrownianBase::FixBrownianBase(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, n
   dipole_flag = 0;
   rot_temp_flag = 0;
   planar_rot_flag = 0;
+  final_integrate_flag = 0;
   g2 = 0.0;
 
   if (narg < 5) error->all(FLERR, "Illegal fix brownian command.");
@@ -171,6 +172,11 @@ FixBrownianBase::FixBrownianBase(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, n
         error->all(FLERR, "The planar_rotation keyword is not allowed for 2D simulations");
       iarg = iarg + 1;
 
+    } else if (strcmp(arg[iarg], "final_integrate") == 0) {
+
+      final_integrate_flag = 1;
+      iarg = iarg + 1;
+
     } else {
       error->all(FLERR, "Illegal fix brownian command.");
     }
@@ -186,7 +192,12 @@ FixBrownianBase::FixBrownianBase(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, n
 int FixBrownianBase::setmask()
 {
   int mask = 0;
-  mask |= INITIAL_INTEGRATE;
+  if (final_integrate_flag) {
+    mask |= FINAL_INTEGRATE;
+  } else {
+    mask |= INITIAL_INTEGRATE;
+  }
+
   return mask;
 }
 
@@ -230,4 +241,19 @@ void FixBrownianBase::reset_dt()
   dt = update->dt;
   sqrtdt = sqrt(dt);
   g2 *= sqrtdt_old / sqrtdt;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixBrownianBase::initial_integrate(int /*vflag */)
+{
+  if (!final_integrate_flag) 
+    call_integrate();
+}
+
+/* ---------------------------------------------------------------------- */
+void FixBrownianBase::final_integrate()
+{
+  if (final_integrate_flag) 
+    call_integrate();
 }

@@ -49,6 +49,10 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
 {
 
   // required args
+  vector_flag = 1;
+  extvector = 0;
+  size_vector = 2;
+  global_freq = 1;
   
   alivetype = utils::inumeric(FLERR, arg[3], false, lmp);
   if (alivetype <= 0 || alivetype > atom->ntypes)
@@ -65,7 +69,7 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
 
   cleanevery = utils::inumeric(FLERR, arg[9], false, lmp);
   
-  rng = new RanMars(lmp, seed + comm->me);
+  rng = new RanMars(lmp, seed + comm->me*100);
 
   comm_forward = 1;  
   force_reneighbor = 1;
@@ -107,29 +111,26 @@ void FixOrganismBirthDeathLogistic::init()
 void FixOrganismBirthDeathLogistic::post_integrate()
 {
 
-  delete_dead_atoms();
   
   int *mask = atom->mask;
   double dt = update->dt;
 
 
+
   int i;
-  double birthrn,deathrn;
+  double ran;
   
   count_vitals();  // create local_alive_list and compute nalive, ndead
 
   std::vector<int> new_atoms; // array to store parents which have no nearby free atoms
   //                                     but need to procreate
-
-
   
   for (int ia = 0; ia < localalive; ia++) {
     i = local_alive_list[ia];
     
-    birthrn = rng->uniform();
-    deathrn = rng->uniform();
+    ran = rng->uniform();
 
-    if (birthrn  < birthrate*dt &&  ! (deathrn < deathrate*nalive*dt)) {
+    if (ran  <= birthrate*dt) {
 
       bool procreated = birth_from_dead(i);
 
@@ -137,7 +138,7 @@ void FixOrganismBirthDeathLogistic::post_integrate()
 	new_atoms.push_back(i);
       }
       
-    } else if (deathrn < deathrate*nalive*dt && ! (birthrn  < birthrate*dt)) {
+    } else if (ran <= deathrate*(nalive-1)*dt + birthrate*dt) {
 
       atom->type[i] = deadtype;
       
@@ -148,6 +149,9 @@ void FixOrganismBirthDeathLogistic::post_integrate()
   create_new_atoms(new_atoms);
   
   comm->forward_comm(this);
+  delete_dead_atoms();
+
+  
 
 }
       
@@ -240,12 +244,8 @@ void FixOrganismBirthDeathLogistic::delete_dead_atoms()
   }
   
   
-  // print before and after atom and topology counts
-  
   bigint ndelete = natoms_previous - atom->natoms;
 
-  if (comm->me == 0)
-    printf("deleted %ld atoms\n",ndelete);
 }
 
 
@@ -254,7 +254,6 @@ void FixOrganismBirthDeathLogistic::create_new_atoms(const std::vector<int> &new
   // store number of local atoms before depleted parents generate new gametes
   bigint nlocal = atom->nlocal;
 
-  //printf("pre generating gametes on proc %d\n",comm->me );
 
   // create new atoms (overwrites ghost atoms so need to rebuild neighbor list next step).
   // total atoms created will = (new_atoms.size() * atom->numgametes)
@@ -271,15 +270,13 @@ void FixOrganismBirthDeathLogistic::create_new_atoms(const std::vector<int> &new
     modify->create_attribute(n);
     procreate(i,n);
   }
-  //printf("post generating gametes %d\n",comm->me );
+
 
   
   int reneigh =  new_atoms.size();
   int globalreneigh;
   MPI_Allreduce(&reneigh, &globalreneigh, 1, MPI_INT, MPI_SUM, world);
   if (globalreneigh > 0) {
-    if (comm->me == 0)
-      printf("triggering reneighbor\n");
     next_reneighbor = update->ntimestep;
   
 
@@ -418,4 +415,20 @@ void FixOrganismBirthDeathLogistic::count_vitals()
   MPI_Allreduce(&localdead, &ndead, 1, MPI_INT, MPI_SUM, world);
 
   return;
+}
+
+
+/* ----------------------------------------------------------------------
+   number of alive particles
+------------------------------------------------------------------------- */
+
+double FixOrganismBirthDeathLogistic::compute_vector(int i)
+{
+
+  count_vitals();  // create local_alive_list and compute nalive, ndead
+
+  if (i == 0) return nalive;
+  if (i == 1) return ndead;
+
+  return -1;
 }

@@ -11,34 +11,26 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifdef FIX_CLASS
-// clang-format off
-FixStyle(organism/birthdeath/logistic/ratchet1d,FixOrganismBirthDeathLogisticRatchet1D);
-// clang-format on
-#else
 
-#ifndef LMP_FIX_ORGANISM_BIRTHDEATH_LOGISTIC_RATCHET1D_H
-#define LMP_FIX_ORGANISM_BIRTHDEATH_LOGISTIC_RATCHET1D_H
+#ifndef LMP_FIX_ORGANISM_BIRTHDEATH_1D_PROJECTION_H
+#define LMP_FIX_ORGANISM_BIRTHDEATH_1D_PROJECTION_H
 
 #include "fix_organism_birthdeath_logistic.h"
 
 namespace LAMMPS_NS {
 
-class FixOrganismBirthDeathLogisticRatchet1D : public FixOrganismBirthDeathLogistic {
+class FixOrganismBirthDeath1dProjection : public FixOrganismBirthDeathLogistic {
  public:
-  FixOrganismBirthDeathLogisticRatchet1D(class LAMMPS *, int, char **);
+  FixOrganismBirthDeath1dProjection(class LAMMPS *, int, char **);
   int setmask() override;
   void post_force(int);
+  virtual double force(double) = 0;
 
  private:
   virtual void procreate(int,int) override;
-  bool first_section(double );
-protected:
 
-  double height, first_length, second_length, midvertex;
 };
 
 }    // namespace LAMMPS_NS
 
-#endif
 #endif

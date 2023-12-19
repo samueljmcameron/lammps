@@ -33,6 +33,7 @@ class FixOrganismBirthDeathLogistic : public Fix {
   void post_integrate() override;
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
+  double compute_vector(int) override;
 
  private:
   bool birth_from_dead(int);
