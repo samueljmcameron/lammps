@@ -45,7 +45,7 @@ using namespace FixConst;
 
 FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), local_alive_list(nullptr),
-  local_dead_list(nullptr)
+  local_dead_list(nullptr),proc_dist(0,comm->nprocs-1),atom_dist(0,1)
 {
 
   // required args
@@ -63,9 +63,23 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
     error->all(FLERR, "Invalid atom type in fix organism/birthdeath/logistic command");
 
   seed = utils::inumeric(FLERR, arg[5], false, lmp);
+
+  if (seed <= 0)
+    error->all(FLERR, "Seed must be positive in fix organism/birthdeath/logistic command");
+  
   birthrate = utils::numeric(FLERR, arg[6], false, lmp);
   deathrate = utils::numeric(FLERR, arg[7], false, lmp);
+
+  if (birthrate <= 0)
+    error->all(FLERR, "Birth rate must be positive in fix organism/birthdeath/logistic command");
+
+  if (deathrate <= 0)
+    error->all(FLERR, "Death rate must be positive in fix organism/birthdeath/logistic command");
+  
   shift = utils::numeric(FLERR, arg[8], false, lmp);
+  
+  if (shift < 0)
+    error->all(FLERR, "Shift must be positive in fix organism/birthdeath/logistic command");
 
   cleanevery = utils::inumeric(FLERR, arg[9], false, lmp);
   
@@ -75,7 +89,21 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
   force_reneighbor = 1;
   
   atom_swap_nmax = 0;
-  next_reneighbor = 0;  
+  next_reneighbor = 0;
+
+  gen.seed(seed + comm->me*100);
+
+  global_alive_list =
+    (int *) memory->smalloc(comm->nprocs * sizeof(int), "MCSWAP:global_alive_list");
+  global_dead_list =
+    (int *) memory->smalloc(comm->nprocs * sizeof(int), "MCSWAP:global_dead_list");
+
+
+  if (birthrate/deathrate < 1.0)
+  
+  
+
+  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -85,11 +113,28 @@ FixOrganismBirthDeathLogistic::~FixOrganismBirthDeathLogistic()
 
   memory->destroy(local_alive_list);
   memory->destroy(local_dead_list);
+  memory->destroy(global_alive_list);
+  memory->destroy(global_dead_list);
   
   delete rng;
 
 }
 
+void FixOrganismBirthDeathLogistic::reset_dt()
+{
+  
+  double Nav = birthrate/deathrate;
+
+  double dt = update->dt;
+  
+  if (Nav*birthrate*dt > 1.0)
+    error->all(FLERR,"Birth rate in fix organism/birthdeath/logistic command is too large, multiple events will occur for given dt.");    
+  else if (Nav*dt*(deathrate*(Nav-1) + birthrate) > 1.0) 
+    error->all(FLERR,"Death rate in fix organism/birthdeath/logistic command is too large, multiple events will occur for given dt.");
+
+}
+
+ 
 /* ---------------------------------------------------------------------- */
 
 int FixOrganismBirthDeathLogistic::setmask()
@@ -124,7 +169,55 @@ void FixOrganismBirthDeathLogistic::post_integrate()
 
   std::vector<int> new_atoms; // array to store parents which have no nearby free atoms
   //                                     but need to procreate
+
+  int proc = -1;
+  int birth = 0;
+
+  // decide whether birth or death happens only on one processor
+  if (comm->me == 0) {
+    ran = rng->uniform();
+
+    // choose processor and which atom  
+    if (ran  <= nalive*birthrate*dt) {
+      birth = 1;
+      proc = proc_dist(gen);
+      while (global_alive_list[proc] == 0) 
+	proc = proc_dist(gen);
+
+    } else if (ran <= nalive*dt*(deathrate*(nalive-1) + birthrate)) {
+      proc = proc_dist(gen);
+      while (global_alive_list[proc] == 0) 
+	proc = proc_dist(gen);
+
+      
+    }
+
+    
+  }
+
+  MPI_Bcast(&proc,1,MPI_INT,0,world);
+  MPI_Bcast(&birth,1,MPI_INT,0,world);
+
+  if (proc == comm->me) {
+    atom_dist.param(decltype(atom_dist)::param_type(0,localalive-1));
+
+    i = local_alive_list[atom_dist(gen)];
+
+    if (birth) {
+      bool procreated = birth_from_dead(i);
+
+      if (! procreated) {
+	new_atoms.push_back(i);
+      }
+      
+    } else {
+
+      atom->type[i] = deadtype;
+    }
   
+  }
+
+  /*
   for (int ia = 0; ia < localalive; ia++) {
     i = local_alive_list[ia];
     
@@ -145,6 +238,7 @@ void FixOrganismBirthDeathLogistic::post_integrate()
     }
 
   }
+  */
 
   create_new_atoms(new_atoms);
   
@@ -410,9 +504,31 @@ void FixOrganismBirthDeathLogistic::count_vitals()
       }
     }
   }
+
+
+  MPI_Allgather(&localalive,1,MPI_INT,&(global_alive_list[0]),1,MPI_INT,world);
+  MPI_Allgather(&localdead,1,MPI_INT,&(global_dead_list[0]),1,MPI_INT,world);
+  
   
   MPI_Allreduce(&localalive, &nalive, 1, MPI_INT, MPI_SUM, world);
   MPI_Allreduce(&localdead, &ndead, 1, MPI_INT, MPI_SUM, world);
+
+  int sum = 0;
+
+  for (int i = 0; i < comm->nprocs; i++)
+    sum += global_alive_list[i];
+
+  if (sum != nalive)
+    printf("ERROR sum = %d but nalive = %d !!!!\n\n\n\n\n\n",sum,nalive);
+
+  sum = 0;
+
+  for (int i = 0; i < comm->nprocs; i++)
+    sum += global_dead_list[i];
+
+  if (sum != ndead)
+    printf("ERROR sum = %d but ndead = %d !!!!\n\n\n\n\n\n",sum,ndead);
+  
 
   return;
 }

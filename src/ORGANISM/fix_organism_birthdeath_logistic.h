@@ -21,6 +21,7 @@ FixStyle(organism/birthdeath/logistic,FixOrganismBirthDeathLogistic);
 #define LMP_FIX_ORGANISM_BIRTHDEATH_LOGISTIC_H
 
 #include "fix.h"
+#include <random>
 
 namespace LAMMPS_NS {
 
@@ -28,6 +29,7 @@ class FixOrganismBirthDeathLogistic : public Fix {
  public:
   FixOrganismBirthDeathLogistic(class LAMMPS *, int, char **);
   ~FixOrganismBirthDeathLogistic() override;
+  void reset_dt() override;
   int setmask() override;
   void init() override;
   void post_integrate() override;
@@ -42,6 +44,11 @@ class FixOrganismBirthDeathLogistic : public Fix {
   void count_vitals();
   
   virtual void procreate(int,int);
+
+  std::mt19937 gen;
+
+  std::uniform_int_distribution<> proc_dist;
+  std::uniform_int_distribution<> atom_dist;
   
 protected:
   class RanMars *rng;
@@ -53,6 +60,9 @@ protected:
   double shift;             // radial amount to shift the parent and daughter cells
   int *local_alive_list;
   int *local_dead_list;
+
+  int *global_alive_list;
+  int *global_dead_list;
 
   int atom_swap_nmax;
   int nalive,ndead;
