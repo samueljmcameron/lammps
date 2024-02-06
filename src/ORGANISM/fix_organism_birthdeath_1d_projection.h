@@ -23,7 +23,7 @@ class FixOrganismBirthDeath1dProjection : public FixOrganismBirthDeathLogistic {
  public:
   FixOrganismBirthDeath1dProjection(class LAMMPS *, int, char **);
   int setmask() override;
-  void post_force(int);
+  void post_force(int) override;
   virtual double force(double) = 0;
 
  private:

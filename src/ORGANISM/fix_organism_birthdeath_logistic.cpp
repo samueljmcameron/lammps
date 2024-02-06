@@ -100,7 +100,7 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
 
 
   if (birthrate/deathrate < 1.0)
-  
+    error->all(FLERR, "Steady-state number of particles < 1 in fix organism/birthdeath/logistic command");  
   
 
   
