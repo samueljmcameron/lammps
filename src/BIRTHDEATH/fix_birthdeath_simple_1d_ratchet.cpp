@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_organism_birthdeath_1d_ratchet.h"
+#include "fix_birthdeath_simple_1d_ratchet.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -43,17 +43,23 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixOrganismBirthDeath1dRatchet::FixOrganismBirthDeath1dRatchet(LAMMPS *lmp, int narg, char **arg) :
-  FixOrganismBirthDeath1dProjection(lmp, narg, arg)
+FixBirthDeathSimple1dRatchet::FixBirthDeathSimple1dRatchet(LAMMPS *lmp, int narg, char **arg) :
+  FixBirthDeathSimple1dProjection(lmp, narg, arg)
 {
   // required args
+
+
+  if (strcmp(arg[nspecified_args++], "fraction") != 0)
+    error->all(FLERR, "Need to specify fraction in fix birthdeath/simple/1D/ratchet command");
   
-  double fraction = utils::numeric(FLERR, arg[10], false, lmp);
+  double fraction = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
 
   if (fraction <= 0 || fraction >= 1) 
     error->all(FLERR, "Invalid ratchet fraction in organism/birthdeath/1D/ratchet");
-  
-  height = utils::numeric(FLERR, arg[11], false, lmp);
+
+  if (strcmp(arg[nspecified_args++], "height") != 0)
+    error->all(FLERR, "Need to specify height in fix birthdeath/simple/1D/ratchet command");
+  height = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
 
 
   first_length = fraction*domain->prd[0];
@@ -65,7 +71,7 @@ FixOrganismBirthDeath1dRatchet::FixOrganismBirthDeath1dRatchet(LAMMPS *lmp, int 
 
 
 
-double FixOrganismBirthDeath1dRatchet::force(double x) {
+double FixBirthDeathSimple1dRatchet::force(double x) {
   
   if (first_section(x)) {
     
@@ -84,7 +90,7 @@ double FixOrganismBirthDeath1dRatchet::force(double x) {
 
 
 
-bool FixOrganismBirthDeath1dRatchet::first_section(double x)
+bool FixBirthDeathSimple1dRatchet::first_section(double x)
 {
 
   double period = domain->prd[0];

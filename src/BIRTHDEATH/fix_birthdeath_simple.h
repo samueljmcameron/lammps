@@ -13,22 +13,22 @@
 
 #ifdef FIX_CLASS
 // clang-format off
-FixStyle(organism/birthdeath/logistic,FixOrganismBirthDeathLogistic);
+FixStyle(birthdeath/simple,FixBirthDeathSimple);
 // clang-format on
 #else
 
-#ifndef LMP_FIX_ORGANISM_BIRTHDEATH_LOGISTIC_H
-#define LMP_FIX_ORGANISM_BIRTHDEATH_LOGISTIC_H
+#ifndef LMP_FIX_BIRTHDEATH_SIMPLE_H
+#define LMP_FIX_BIRTHDEATH_SIMPLE_H
 
 #include "fix.h"
 #include <random>
 
 namespace LAMMPS_NS {
 
-class FixOrganismBirthDeathLogistic : public Fix {
+class FixBirthDeathSimple : public Fix {
  public:
-  FixOrganismBirthDeathLogistic(class LAMMPS *, int, char **);
-  ~FixOrganismBirthDeathLogistic() override;
+  FixBirthDeathSimple(class LAMMPS *, int, char **);
+  ~FixBirthDeathSimple() override;
   void reset_dt() override;
   int setmask() override;
   void init() override;
@@ -49,6 +49,8 @@ class FixOrganismBirthDeathLogistic : public Fix {
 
   std::uniform_int_distribution<> proc_dist;
   std::uniform_int_distribution<> atom_dist;
+
+  bool exactpoisson;
   
 protected:
   class RanMars *rng;
@@ -68,6 +70,7 @@ protected:
   int nalive,ndead;
   int localalive,localdead;
   int cleanevery;
+  int nspecified_args;
 
 };
 

@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_organism_birthdeath_1d_projection.h"
+#include "fix_birthdeath_simple_1d_projection.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -43,9 +43,12 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixOrganismBirthDeath1dProjection::FixOrganismBirthDeath1dProjection(LAMMPS *lmp, int narg, char **arg) :
-  FixOrganismBirthDeathLogistic(lmp, narg, arg)
+FixBirthDeathSimple1dProjection::FixBirthDeathSimple1dProjection(LAMMPS *lmp, int narg, char **arg) :
+  FixBirthDeathSimple(lmp, narg, arg)
 {
+  if (strcmp(arg[nspecified_args++], "omega") != 0)
+    error->all(FLERR, "Need to specify omega in fix birthdeath/simple/1D command");
+  omega = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
   
 }
 
@@ -53,7 +56,7 @@ FixOrganismBirthDeath1dProjection::FixOrganismBirthDeath1dProjection(LAMMPS *lmp
 
 /* ---------------------------------------------------------------------- */
 
-int FixOrganismBirthDeath1dProjection::setmask()
+int FixBirthDeathSimple1dProjection::setmask()
 {
   int mask = 0;
   mask |= POST_INTEGRATE;
@@ -62,7 +65,7 @@ int FixOrganismBirthDeath1dProjection::setmask()
 }
 
 
-void FixOrganismBirthDeath1dProjection::post_force(int /* vflag */)
+void FixBirthDeathSimple1dProjection::post_force(int /* vflag */)
 {
   double **x = atom->x;
   double **f = atom->f;
@@ -78,7 +81,7 @@ void FixOrganismBirthDeath1dProjection::post_force(int /* vflag */)
 
 
 
-void FixOrganismBirthDeath1dProjection::procreate(int i, int j)
+void FixBirthDeathSimple1dProjection::procreate(int i, int j)
 {
 
   double **x = atom->x;
@@ -93,7 +96,7 @@ void FixOrganismBirthDeath1dProjection::procreate(int i, int j)
   double sigma_x,sigma_hi,sigma_lo;
 
   
-  sigma_x = shift/sqrt(1+force(cx)*force(cx));
+  sigma_x = shift/sqrt(1+force(cx)*force(cx)/(omega*omega));
 
   sigma_hi = 0.5*sigma_x;
   sigma_lo = 0.5*sigma_x;

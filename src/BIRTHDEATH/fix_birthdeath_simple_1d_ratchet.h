@@ -13,20 +13,20 @@
 
 #ifdef FIX_CLASS
 // clang-format off
-FixStyle(organism/birthdeath/1D/ratchet,FixOrganismBirthDeath1dRatchet);
+FixStyle(birthdeath/simple/1D/ratchet,FixBirthDeathSimple1dRatchet);
 // clang-format on
 #else
 
-#ifndef LMP_FIX_ORGANISM_BIRTHDEATH_1D_RATCHET_H
-#define LMP_FIX_ORGANISM_BIRTHDEATH_1D_RATCHET_H
+#ifndef LMP_FIX_BIRTHDEATH_SIMPLE_1D_RATCHET_H
+#define LMP_FIX_BIRTHDEATH_SIMPLE_1D_RATCHET_H
 
-#include "fix_organism_birthdeath_1d_projection.h"
+#include "fix_birthdeath_simple_1d_projection.h"
 
 namespace LAMMPS_NS {
 
-class FixOrganismBirthDeath1dRatchet : public FixOrganismBirthDeath1dProjection {
+class FixBirthDeathSimple1dRatchet : public FixBirthDeathSimple1dProjection {
  public:
-  FixOrganismBirthDeath1dRatchet(class LAMMPS *, int, char **);
+  FixBirthDeathSimple1dRatchet(class LAMMPS *, int, char **);
   
   virtual double force(double) override;
   

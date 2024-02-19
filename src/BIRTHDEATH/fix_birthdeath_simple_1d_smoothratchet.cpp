@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_organism_birthdeath_1d_smoothratchet.h"
+#include "fix_birthdeath_simple_1d_smoothratchet.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -43,19 +43,20 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixOrganismBirthDeath1dSmoothRatchet::FixOrganismBirthDeath1dSmoothRatchet(LAMMPS *lmp, int narg, char **arg) :
-  FixOrganismBirthDeath1dProjection(lmp, narg, arg)
+FixBirthDeathSimple1dSmoothRatchet::FixBirthDeathSimple1dSmoothRatchet(LAMMPS *lmp, int narg, char **arg) :
+  FixBirthDeathSimple1dProjection(lmp, narg, arg)
 {
 
   // required args
-  
-  n_pot = utils::inumeric(FLERR, arg[10], false, lmp);
-  
-  height = utils::numeric(FLERR, arg[11], false, lmp);
 
+  if (strcmp(arg[nspecified_args++], "nterms") != 0)
+    error->all(FLERR, "Need to specify nterms in fix birthdeath/simple/1D/smoothratchet command");
+  n_pot = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
+  if (strcmp(arg[nspecified_args++], "height") != 0)
+    error->all(FLERR, "Need to specify height in fix birthdeath/simple/1D/smoothratchet command");
+  height = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
 
   length = domain->prd[0];
-
 
   yend = endpoint();
   normfac = gfunc(yend);
@@ -63,7 +64,7 @@ FixOrganismBirthDeath1dSmoothRatchet::FixOrganismBirthDeath1dSmoothRatchet(LAMMP
 }
 
 
-double FixOrganismBirthDeath1dSmoothRatchet::force(double x)
+double FixBirthDeathSimple1dSmoothRatchet::force(double x)
 {
 
   double y = 2*M_PI/length*x + yend -M_PI;
@@ -73,7 +74,7 @@ double FixOrganismBirthDeath1dSmoothRatchet::force(double x)
 
 
 
-double FixOrganismBirthDeath1dSmoothRatchet::binom(int n, int k)
+double FixBirthDeathSimple1dSmoothRatchet::binom(int n, int k)
 {
   if (n == k) return 1.0;
   if (k == 0) return 1.0;
@@ -88,7 +89,7 @@ double FixOrganismBirthDeath1dSmoothRatchet::binom(int n, int k)
   return output;
 }
 
-double FixOrganismBirthDeath1dSmoothRatchet::gfunc(double x)
+double FixBirthDeathSimple1dSmoothRatchet::gfunc(double x)
 {
 
   int n = n_pot;
@@ -100,14 +101,14 @@ double FixOrganismBirthDeath1dSmoothRatchet::gfunc(double x)
 
 }
 
-double FixOrganismBirthDeath1dSmoothRatchet::gfunc_deriv(double x)
+double FixBirthDeathSimple1dSmoothRatchet::gfunc_deriv(double x)
 {
   int n = n_pot;
   return -pow(2,(2*n-1))/binom(2*n,n)*pow(cos(x/2.),2*n)+0.5;
 
 }
 
-double FixOrganismBirthDeath1dSmoothRatchet::endpoint() {
+double FixBirthDeathSimple1dSmoothRatchet::endpoint() {
 
   int n = n_pot;
   return 2*acos(0.5*(pow(binom(2*n,n),(1./(2*n)))));

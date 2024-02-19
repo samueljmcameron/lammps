@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_organism_birthdeath_logistic.h"
+#include "fix_birthdeath_simple.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -43,7 +43,7 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int narg, char **arg) :
+FixBirthDeathSimple::FixBirthDeathSimple(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), local_alive_list(nullptr),
   local_dead_list(nullptr),proc_dist(0,comm->nprocs-1),atom_dist(0,1)
 {
@@ -53,22 +53,23 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
   extvector = 0;
   size_vector = 2;
   global_freq = 1;
-  
-  alivetype = utils::inumeric(FLERR, arg[3], false, lmp);
+
+  nspecified_args = 3;
+  alivetype = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
   if (alivetype <= 0 || alivetype > atom->ntypes)
     error->all(FLERR, "Invalid atom type in fix organism/birthdeath/logistic command");
   
-  deadtype = utils::inumeric(FLERR, arg[4], false, lmp);
+  deadtype = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
   if (deadtype <= 0 || deadtype > atom->ntypes)
     error->all(FLERR, "Invalid atom type in fix organism/birthdeath/logistic command");
 
-  seed = utils::inumeric(FLERR, arg[5], false, lmp);
+  seed = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
 
   if (seed <= 0)
     error->all(FLERR, "Seed must be positive in fix organism/birthdeath/logistic command");
   
-  birthrate = utils::numeric(FLERR, arg[6], false, lmp);
-  deathrate = utils::numeric(FLERR, arg[7], false, lmp);
+  birthrate = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
+  deathrate = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
 
   if (birthrate <= 0)
     error->all(FLERR, "Birth rate must be positive in fix organism/birthdeath/logistic command");
@@ -76,12 +77,25 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
   if (deathrate <= 0)
     error->all(FLERR, "Death rate must be positive in fix organism/birthdeath/logistic command");
   
-  shift = utils::numeric(FLERR, arg[8], false, lmp);
+  shift = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
   
   if (shift < 0)
     error->all(FLERR, "Shift must be positive in fix organism/birthdeath/logistic command");
 
-  cleanevery = utils::inumeric(FLERR, arg[9], false, lmp);
+  cleanevery = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
+
+
+  exactpoisson=false;
+  
+  if (strcmp(arg[nspecified_args], "exactpoisson") == 0) {
+    if (strcmp(arg[nspecified_args+1], "yes") == 0) 
+      exactpoisson=true;
+    else if (strcmp(arg[nspecified_args+1], "no") == 0)
+      exactpoisson=false;
+    else
+      error->all(FLERR, "Either yes or no after exactpoisson in fix organism/birthdeath/logistic command");
+    nspecified_args += 2;
+  }
   
   rng = new RanMars(lmp, seed + comm->me*100);
 
@@ -108,7 +122,7 @@ FixOrganismBirthDeathLogistic::FixOrganismBirthDeathLogistic(LAMMPS *lmp, int na
 
 /* ---------------------------------------------------------------------- */
 
-FixOrganismBirthDeathLogistic::~FixOrganismBirthDeathLogistic()
+FixBirthDeathSimple::~FixBirthDeathSimple()
 {
 
   memory->destroy(local_alive_list);
@@ -120,7 +134,7 @@ FixOrganismBirthDeathLogistic::~FixOrganismBirthDeathLogistic()
 
 }
 
-void FixOrganismBirthDeathLogistic::reset_dt()
+void FixBirthDeathSimple::reset_dt()
 {
   
   double Nav = birthrate/deathrate;
@@ -137,14 +151,14 @@ void FixOrganismBirthDeathLogistic::reset_dt()
  
 /* ---------------------------------------------------------------------- */
 
-int FixOrganismBirthDeathLogistic::setmask()
+int FixBirthDeathSimple::setmask()
 {
   int mask = 0;
   mask |= POST_INTEGRATE;
   return mask;
 }
 
-void FixOrganismBirthDeathLogistic::init()
+void FixBirthDeathSimple::init()
 {
 
 }
@@ -153,7 +167,7 @@ void FixOrganismBirthDeathLogistic::init()
    birth death
 ------------------------------------------------------------------------- */
 
-void FixOrganismBirthDeathLogistic::post_integrate()
+void FixBirthDeathSimple::post_integrate()
 {
 
   
@@ -170,75 +184,77 @@ void FixOrganismBirthDeathLogistic::post_integrate()
   std::vector<int> new_atoms; // array to store parents which have no nearby free atoms
   //                                     but need to procreate
 
-  int proc = -1;
-  int birth = 0;
 
-  // decide whether birth or death happens only on one processor
-  if (comm->me == 0) {
-    ran = rng->uniform();
-
-    // choose processor and which atom  
-    if (ran  <= nalive*birthrate*dt) {
-      birth = 1;
-      proc = proc_dist(gen);
-      while (global_alive_list[proc] == 0) 
-	proc = proc_dist(gen);
-
-    } else if (ran <= nalive*dt*(deathrate*(nalive-1) + birthrate)) {
-      proc = proc_dist(gen);
-      while (global_alive_list[proc] == 0) 
-	proc = proc_dist(gen);
-
-      
-    }
-
+  if (exactpoisson) {
+    int proc = -1;
+    int birth = 0;
     
-  }
-
-  MPI_Bcast(&proc,1,MPI_INT,0,world);
-  MPI_Bcast(&birth,1,MPI_INT,0,world);
-
-  if (proc == comm->me) {
-    atom_dist.param(decltype(atom_dist)::param_type(0,localalive-1));
-
-    i = local_alive_list[atom_dist(gen)];
-
-    if (birth) {
-      bool procreated = birth_from_dead(i);
-
-      if (! procreated) {
-	new_atoms.push_back(i);
+    // decide whether birth or death happens only on one processor
+    if (comm->me == 0) {
+      ran = rng->uniform();
+      
+      // choose processor and which atom  
+      if (ran  <= nalive*birthrate*dt) {
+	birth = 1;
+	proc = proc_dist(gen);
+	while (global_alive_list[proc] == 0) 
+	  proc = proc_dist(gen);
+	
+      } else if (ran <= nalive*dt*(deathrate*(nalive-1) + birthrate)) {
+	proc = proc_dist(gen);
+	while (global_alive_list[proc] == 0) 
+	  proc = proc_dist(gen);
+	
+	
       }
       
-    } else {
-
-      atom->type[i] = deadtype;
+      
     }
-  
-  }
-
-  /*
-  for (int ia = 0; ia < localalive; ia++) {
-    i = local_alive_list[ia];
     
-    ran = rng->uniform();
-
-    if (ran  <= birthrate*dt) {
-
-      bool procreated = birth_from_dead(i);
-
-      if (! procreated) {
-	new_atoms.push_back(i);
+    MPI_Bcast(&proc,1,MPI_INT,0,world);
+    MPI_Bcast(&birth,1,MPI_INT,0,world);
+    
+    if (proc == comm->me) {
+      atom_dist.param(decltype(atom_dist)::param_type(0,localalive-1));
+      
+      i = local_alive_list[atom_dist(gen)];
+      
+      if (birth) {
+	bool procreated = birth_from_dead(i);
+	
+	if (! procreated) {
+	  new_atoms.push_back(i);
+	}
+	
+      } else {
+	
+	atom->type[i] = deadtype;
       }
       
-    } else if (ran <= deathrate*(nalive-1)*dt + birthrate*dt) {
+    }
+  } else {
 
-      atom->type[i] = deadtype;
+    for (int ia = 0; ia < localalive; ia++) {
+      i = local_alive_list[ia];
+      
+      ran = rng->uniform();
+      
+      if (ran  <= birthrate*dt) {
+	
+	bool procreated = birth_from_dead(i);
+	
+	if (! procreated) {
+	  new_atoms.push_back(i);
+	}
+	
+      } else if (ran <= deathrate*(nalive-1)*dt + birthrate*dt) {
+	
+	atom->type[i] = deadtype;
+	
+      }
       
     }
-
   }
-  */
 
   create_new_atoms(new_atoms);
   
@@ -252,7 +268,7 @@ void FixOrganismBirthDeathLogistic::post_integrate()
 
 /* ---------------------------------------------------------------------- */
 
-int FixOrganismBirthDeathLogistic::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
+int FixBirthDeathSimple::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
 {
   int i, j, m;
 
@@ -271,7 +287,7 @@ int FixOrganismBirthDeathLogistic::pack_forward_comm(int n, int *list, double *b
 
 /* ---------------------------------------------------------------------- */
 
-void FixOrganismBirthDeathLogistic::unpack_forward_comm(int n, int first, double *buf)
+void FixBirthDeathSimple::unpack_forward_comm(int n, int first, double *buf)
 {
   int i, m, last;
 
@@ -288,7 +304,7 @@ void FixOrganismBirthDeathLogistic::unpack_forward_comm(int n, int first, double
 }
 
 
-void FixOrganismBirthDeathLogistic::delete_dead_atoms()
+void FixBirthDeathSimple::delete_dead_atoms()
 {
 
   if (update->ntimestep % cleanevery != 0)
@@ -343,7 +359,7 @@ void FixOrganismBirthDeathLogistic::delete_dead_atoms()
 }
 
 
-void FixOrganismBirthDeathLogistic::create_new_atoms(const std::vector<int> &new_atoms)
+void FixBirthDeathSimple::create_new_atoms(const std::vector<int> &new_atoms)
 {
   // store number of local atoms before depleted parents generate new gametes
   bigint nlocal = atom->nlocal;
@@ -403,7 +419,7 @@ void FixOrganismBirthDeathLogistic::create_new_atoms(const std::vector<int> &new
    FREE neighbor, turn it into a gamete, and then procreate from it.  */
 /* ---------------------------------------------------------------------- */
 
-bool FixOrganismBirthDeathLogistic::birth_from_dead(int i) {
+bool FixBirthDeathSimple::birth_from_dead(int i) {
   
   bool procreated = false;
 
@@ -429,7 +445,7 @@ bool FixOrganismBirthDeathLogistic::birth_from_dead(int i) {
    atom->gametes[i][gindex] == atom->tag[j].  */
 /* ---------------------------------------------------------------------- */
 
-void FixOrganismBirthDeathLogistic::procreate(int i, int j)
+void FixBirthDeathSimple::procreate(int i, int j)
 {
 
   double **x = atom->x;
@@ -467,9 +483,14 @@ void FixOrganismBirthDeathLogistic::procreate(int i, int j)
   x[i][1] = cy-dy;
   x[i][2] = cz-dz;
   
-  v[j][0] = v[i][0];
-  v[j][1] = v[i][1];
-  v[j][2] = v[i][2];
+  v[j][0] = v[i][0]/2.;
+  v[j][1] = v[i][1]/2.;
+  v[j][2] = v[i][2]/2.;
+
+  v[i][0] /= 2;
+  v[i][1] /= 2;
+  v[i][2] /= 2;
+
 
   return;
 }
@@ -479,7 +500,7 @@ void FixOrganismBirthDeathLogistic::procreate(int i, int j)
    number of alive atoms and dead atoms across all processors. */
 /* ---------------------------------------------------------------------- */
 
-void FixOrganismBirthDeathLogistic::count_vitals()
+void FixBirthDeathSimple::count_vitals()
 {
   
   localalive = 0;
@@ -538,7 +559,7 @@ void FixOrganismBirthDeathLogistic::count_vitals()
    number of alive particles
 ------------------------------------------------------------------------- */
 
-double FixOrganismBirthDeathLogistic::compute_vector(int i)
+double FixBirthDeathSimple::compute_vector(int i)
 {
 
   count_vitals();  // create local_alive_list and compute nalive, ndead
