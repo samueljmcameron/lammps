@@ -160,7 +160,7 @@ void PairJanusCut::compute(int eflag, int vflag)
       // third term of equation 2.24
       Fpp(p1_i,p2_i,dummy_connector,Fdummy);
       
-      MathExtra::cross3(dummy_connector,Fdummy,T_i_dummy);
+      cross3_addition(dummy_connector,Fdummy,T_i_dummy);
       
       for (int dim = 0; dim < 3; dim++)
 	torque[i][dim] += T_i_dummy[dim];
@@ -221,7 +221,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  Fcumulative[dim] += Fdummy[dim];
 
 	// compute the term from equation 2.23
-	MathExtra::cross3(connector_j,Fdummy,T_j_dummy);
+	cross3_addition(connector_j,Fdummy,T_j_dummy);
 
 	// compute the term from equation 2.22
 	Tpp(p1_j,p1_i,dummy_distance,T_j_dummy);
@@ -232,7 +232,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  Fdummy[dim] *= -1;
 	
 	// compute the term from equation 2.20
-	MathExtra::cross3(connector_i,Fdummy,T_i_dummy);
+	cross3_addition(connector_i,Fdummy,T_i_dummy);
 
 	// compute the term from equation 2.19
 	Tpp(p1_i,p1_j,dummy_distance,T_i_dummy);
@@ -255,7 +255,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  Fcumulative[dim] += Fdummy[dim];
 
 	// compute the term from equation 2.20
-	MathExtra::cross3(connector_i,Fdummy,T_i_dummy);
+	cross3_addition(connector_i,Fdummy,T_i_dummy);
 
 	// compute the term from equation 2.19
 	Tpp(p2_i,p1_j,dummy_distance,T_i_dummy);
@@ -266,7 +266,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  Fdummy[dim] *= -1;
 	
 	// compute the term from equation 2.23
-	MathExtra::cross3(connector_j,Fdummy,T_j_dummy);
+	cross3_addition(connector_j,Fdummy,T_j_dummy);
 
 	// compute the term from equation 2.22
 	Tpp(p1_j,p2_i,dummy_distance,T_j_dummy);
@@ -285,7 +285,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  Fcumulative[dim] += Fdummy[dim];
 
 	// compute the term from equation 2.23
-	MathExtra::cross3(connector_j,Fdummy,T_j_dummy);
+	cross3_addition(connector_j,Fdummy,T_j_dummy);
 
 	// compute the term from equation 2.22
 	Tpp(p2_j,p1_i,dummy_distance,T_j_dummy);
@@ -295,7 +295,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  Fdummy[dim] *= -1;
 
 	// compute the term from equation 2.20
-	MathExtra::cross3(connector_i,Fdummy,T_i_dummy);
+	cross3_addition(connector_i,Fdummy,T_i_dummy);
 
 	// compute the term from equation 2.19
 	Tpp(p1_i,p2_j,dummy_distance,T_i_dummy);
@@ -314,7 +314,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  Fcumulative[dim] += Fdummy[dim];
 
 	// compute the term from equation 2.20
-	MathExtra::cross3(connector_i,Fdummy,T_i_dummy);
+	cross3_addition(connector_i,Fdummy,T_i_dummy);
 
 	// compute the term from equation 2.19
 	Tpp(p2_i,p2_j,dummy_distance,T_i_dummy);
@@ -324,7 +324,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  Fdummy[dim] *= -1;
 
 	// compute the term from equation 2.23
-	MathExtra::cross3(connector_j,Fdummy,T_j_dummy);
+	cross3_addition(connector_j,Fdummy,T_j_dummy);
 
 	// compute the term from equation 2.22
 	Tpp(p2_j,p2_i,dummy_distance,T_j_dummy);
@@ -690,4 +690,12 @@ void PairJanusCut::Tpp(const double *pi, const double *pj, const double *rij,
 
   return;
 
+}
+
+
+void PairJanusCut::cross3_addition(const double *v1, const double *v2, double *ans)
+{
+  ans[0] += v1[1] * v2[2] - v1[2] * v2[1];
+  ans[1] += v1[2] * v2[0] - v1[0] * v2[2];
+  ans[2] += v1[0] * v2[1] - v1[1] * v2[0];
 }

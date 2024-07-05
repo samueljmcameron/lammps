@@ -62,7 +62,9 @@ private:
 
   void Tpp(const double *, const double *, const double *,
 	   double *); // Xichen's 2.7
-;
+
+  void cross3_addition(const double *, const double *, double *);
+
 
   virtual void allocate();
 };
