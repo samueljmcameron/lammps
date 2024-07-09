@@ -17,20 +17,20 @@ Per MPI rank memory allocation (min/avg/max) = 12.16 | 12.16 | 12.16 Mbytes
    Step         PotEng    
          0   0            
          1   0            
-Loop time of 2.5917e-05 on 1 procs for 1 steps with 3 atoms
+Loop time of 2.65e-05 on 1 procs for 1 steps with 3 atoms
 
-Performance: 333371.918 tau/day, 38584.713 timesteps/s, 115.754 katom-step/s
-61.7% CPU use with 1 MPI tasks x no OpenMP threads
+Performance: 326037.736 tau/day, 37735.849 timesteps/s, 113.208 katom-step/s
+60.4% CPU use with 1 MPI tasks x no OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
 Pair    | 0          | 0          | 0          |   0.0 |  0.00
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 2.5e-06    | 2.5e-06    | 2.5e-06    |   0.0 |  9.65
-Output  | 1.3042e-05 | 1.3042e-05 | 1.3042e-05 |   0.0 | 50.32
-Modify  | 7.626e-06  | 7.626e-06  | 7.626e-06  |   0.0 | 29.42
-Other   |            | 2.749e-06  |            |       | 10.61
+Comm    | 1.666e-06  | 1.666e-06  | 1.666e-06  |   0.0 |  6.29
+Output  | 1.1917e-05 | 1.1917e-05 | 1.1917e-05 |   0.0 | 44.97
+Modify  | 1.0708e-05 | 1.0708e-05 | 1.0708e-05 |   0.0 | 40.41
+Other   |            | 2.209e-06  |            |       |  8.34
 
 Nlocal:              3 ave           3 max           3 min
 Histogram: 1 0 0 0 0 0 0 0 0 0

@@ -75,7 +75,6 @@ FixBirthDeathRates::FixBirthDeathRates(LAMMPS *lmp, int narg, char **arg) :
     if (strcmp(arg[iarg + i*ncoeff], "coeff") == 0) 
       coeff(&arg[iarg + 1 + i*ncoeff]);
     else {
-      printf("%s\n",arg[iarg + i*ncoeff]);
       error->all(FLERR,
 		 "Invalid coefficients in fix birthdeath/rates command.");
     }
@@ -90,8 +89,6 @@ FixBirthDeathRates::FixBirthDeathRates(LAMMPS *lmp, int narg, char **arg) :
 	width[i][j] = 1.0; // 1.0 to avoid divide by zero
 	cnum[i][j] = 1.0;  // 1.0 to avoid divide by zero
       }
-      printf("(%d,%d) b0 = %lf, d0 = %lf, sigma = %lf, width = %lf, cnum = %lf\n",
-	     i,j,b0[i][j],d0[i][j],sigma[i][j],width[i][j],cnum[i][j]);
     }
   }
   
@@ -246,9 +243,10 @@ void FixBirthDeathRates::initial_integrate(int /* vflag */)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
 
-  printf("\n \n calling\n\n");
-  for (i = 0; i < atom->nlocal; i++) 
+  for (i = 0; i < atom->nlocal; i++) {
     division[i] = b0[type[i]][type[i]];
+    death[i] = 0.0;
+  }
   
   // loop over neighbors of my atoms
 
@@ -267,9 +265,12 @@ void FixBirthDeathRates::initial_integrate(int /* vflag */)
 
       j &= NEIGHMASK;
 
+
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
+
+      
       rsq = delx * delx + dely * dely + delz * delz;
       r_dist = sqrt(rsq);
       jtype = type[j];
@@ -287,6 +288,7 @@ void FixBirthDeathRates::initial_integrate(int /* vflag */)
   }
 
   // communicate division and death contributions from ghost atoms to other processors
+
   comm->reverse_comm(this);
 
 }

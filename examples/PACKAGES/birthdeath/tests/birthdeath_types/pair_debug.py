@@ -27,13 +27,16 @@ if __name__ == "__main__":
     zs = dl.data[-1]['z']
     divisions = dl.data[-1]['division']
     deaths = dl.data[-1]['death']
+    types = dl.data[-1]['type']
 
 
     expected_divisions = np.zeros([N],float)
     expected_deaths = np.zeros([N],float)
 
     for i in range(N):
-        expected_divisions[i] += b0
+        
+        if types[i] == 1:
+            expected_divisions[i] += b0
         for j in range(i+1,N):
 
             rij = np.array([xs[i] - xs[j],
@@ -43,7 +46,12 @@ if __name__ == "__main__":
             rdist = np.linalg.norm(rij)
             print(rdist)
 
-            if rdist <= cutoff:
+            if types[i] == 1 and types[j] == 1:
+                righttype = True
+            else:
+                righttype = False
+
+            if rdist <= cutoff and righttype:
             
                 expected_divisions[i] -= division_offset(rdist,b0,sigma,width,cnum)
                 expected_deaths[i] += death_offset(rdist,d0,sigma,width,cnum)

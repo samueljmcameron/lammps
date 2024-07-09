@@ -37,7 +37,7 @@ AtomVecAlive::AtomVecAlive(LAMMPS *lmp) : AtomVec(lmp)
   fields_copy = {"division", "death"};
   fields_comm = {"division","death"};
   fields_comm_vel = {"division","death"};
-  fields_reverse = {"division","death"};
+  //fields_reverse = {"division","death"};
   fields_border = {"division", "death"};
   fields_border_vel = {"division", "death"};
   fields_exchange = {"division","death"};

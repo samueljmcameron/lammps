@@ -1,34 +1,36 @@
-run             0
+run             1
 WARNING: No fixes with time integration, atoms won't move (src/verlet.cpp:60)
-Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
 Neighbor list info ...
   update: every = 1 steps, delay = 0 steps, check = yes
   max neighbors/atom: 2000, page size: 100000
-  master list distance cutoff = 1.8
-  ghost atom cutoff = 1.8
-  binsize = 0.9, bins = 112 112 112
+  master list distance cutoff = 0
+  ghost atom cutoff = 1.7
+  binsize = 100, bins = 1 1 1
   1 neighbor lists, perpetual/occasional/extra = 1 0 0
-  (1) pair birthdeath, perpetual
-      attributes: half, newton on
+  (1) fix birthdeath/rates, perpetual
+      attributes: half, newton on, cut 1.6
       pair build: half/bin/atomonly/newton
       stencil: half/bin/3d
       bin: standard
-Per MPI rank memory allocation (min/avg/max) = 3.856 | 3.95 | 4.231 Mbytes
+WARNING: No pairwise cutoff or binsize set. Atom sorting therefore disabled. (src/atom.cpp:2375)
+Per MPI rank memory allocation (min/avg/max) = 4.255 | 4.318 | 4.505 Mbytes
    Step         PotEng    
          0   0            
-Loop time of 3.88037e-06 on 8 procs for 0 steps with 7 atoms
+         1   0            
+Loop time of 5.3276e-05 on 8 procs for 1 steps with 7 atoms
 
-106.3% CPU use with 8 MPI tasks x no OpenMP threads
+Performance: 162174.337 tau/day, 18770.178 timesteps/s, 131.391 katom-step/s
+92.2% CPU use with 8 MPI tasks x no OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
 Pair    | 0          | 0          | 0          |   0.0 |  0.00
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0          | 0          | 0          |   0.0 |  0.00
-Output  | 0          | 0          | 0          |   0.0 |  0.00
-Modify  | 0          | 0          | 0          |   0.0 |  0.00
-Other   |            | 3.88e-06   |            |       |100.00
+Comm    | 3.584e-06  | 5.3908e-06 | 6.876e-06  |   0.0 | 10.12
+Output  | 2.1083e-05 | 2.5354e-05 | 3.3041e-05 |   0.0 | 47.59
+Modify  | 8.74e-07   | 6.6145e-06 | 1.2916e-05 |   0.0 | 12.42
+Other   |            | 1.592e-05  |            |       | 29.88
 
 Nlocal:          0.875 ave           3 max           0 min
 Histogram: 4 0 0 2 0 0 1 0 0 1
