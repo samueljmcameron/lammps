@@ -1,0 +1,33 @@
+#####system setting#####A
+units           lj                                        # all quantities are dimensionless
+dimension       3                                         # 3 dimensions                                        
+boundary        p p p                                     # periodic boundary condition in all 3 dimensions
+atom_style      alive	     		  		  # ellipsoidal particles 
+
+region          box block -50 50 -50 50 -50 50 units box        # define the simulation box
+create_box      1 box                                     # only 1 type of atoms are used
+
+create_atoms    1 single 0 0 0
+create_atoms    1 single 0.0 0.0 0.8
+create_atoms    1 single 0 0 -0.8
+
+mass		* 1.0
+
+comm_modify cutoff 1.7
+
+fix bd all birthdeath/rates cutoff 1.0 coeff * * 1.0 3.0 0.9 0.001 6.0
+
+
+#####run#####
+timestep        1e-04
+dump            1 all custom 1 threeparticles.dump id type x y z division death
+dump_modify     1 sort id                                 # sort particles in natural order in dump file        
+thermo_style    custom step pe
+thermo          1
+log             log.active_dipole
+run             1
+
+
+
+
+

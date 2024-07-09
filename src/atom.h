@@ -170,6 +170,10 @@ class Atom : protected Pointers {
 
   double *area, *ed, *em, *epsilon, *curvature, *q_scaled;
 
+  // BIRTHDEATH package
+
+  double *division, *death;
+
   // end of customization section
   // --------------------------------------------------------------------
 
@@ -216,6 +220,10 @@ class Atom : protected Pointers {
   // DIELECTRIC package
 
   int dielectric_flag;
+
+  // BIRTHDEATH package
+
+  int alive_flag;
 
   // end of customization section
   // --------------------------------------------------------------------

@@ -1,0 +1,51 @@
+run             1
+WARNING: No fixes with time integration, atoms won't move (src/verlet.cpp:60)
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 0
+  ghost atom cutoff = 1.7
+  binsize = 100, bins = 1 1 1
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) fix birthdeath/rates, perpetual
+      attributes: half, newton on, cut 1.6
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+WARNING: No pairwise cutoff or binsize set. Atom sorting therefore disabled. (src/atom.cpp:2375)
+Per MPI rank memory allocation (min/avg/max) = 12.16 | 12.16 | 12.16 Mbytes
+   Step         PotEng    
+         0   0            
+         1   0            
+Loop time of 2.5917e-05 on 1 procs for 1 steps with 3 atoms
+
+Performance: 333371.918 tau/day, 38584.713 timesteps/s, 115.754 katom-step/s
+61.7% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0          | 0          | 0          |   0.0 |  0.00
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 2.5e-06    | 2.5e-06    | 2.5e-06    |   0.0 |  9.65
+Output  | 1.3042e-05 | 1.3042e-05 | 1.3042e-05 |   0.0 | 50.32
+Modify  | 7.626e-06  | 7.626e-06  | 7.626e-06  |   0.0 | 29.42
+Other   |            | 2.749e-06  |            |       | 10.61
+
+Nlocal:              3 ave           3 max           3 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              3 ave           3 max           3 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 3
+Ave neighs/atom = 1
+Neighbor list builds = 0
+Dangerous builds = 0
+
+
+
+
+
+Total wall time: 0:00:00

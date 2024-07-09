@@ -200,6 +200,12 @@ class DumpCustom : public Dump {
   void pack_tqx(int);
   void pack_tqy(int);
   void pack_tqz(int);
+
+
+  
+  void pack_division(int);
+  void pack_death(int);
+  
 };
 
 }    // namespace LAMMPS_NS
