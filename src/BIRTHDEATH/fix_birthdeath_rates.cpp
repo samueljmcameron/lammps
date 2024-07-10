@@ -209,9 +209,9 @@ void FixBirthDeathRates::init()
   // if user specified, request a cutoff = cutoff_user + skin
   // skin is included b/c Neighbor uses this value similar
   //   to its cutneighmax = force cutoff + skin
+  auto req = neighbor->add_request(this, NeighConst::REQ_DEFAULT);
 
   if (cutflag) {
-    auto req = neighbor->add_request(this, NeighConst::REQ_DEFAULT);
     req->set_cutoff(mycutneigh);
   }
   
