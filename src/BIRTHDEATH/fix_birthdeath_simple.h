@@ -56,8 +56,6 @@ protected:
   class RanMars *rng;
   int alivetype,deadtype;
   int seed;
-  
-  double birthrate,deathrate;
 
   double shift;             // radial amount to shift the parent and daughter cells
   int *local_alive_list;

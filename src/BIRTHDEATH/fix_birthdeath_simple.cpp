@@ -54,49 +54,30 @@ FixBirthDeathSimple::FixBirthDeathSimple(LAMMPS *lmp, int narg, char **arg) :
   size_vector = 2;
   global_freq = 1;
 
+  if (!atom->alive_flag)
+    error->all(FLERR, "Fix birthdeath/simple must have alive atoms.");
+  
   nspecified_args = 3;
   alivetype = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
   if (alivetype <= 0 || alivetype > atom->ntypes)
-    error->all(FLERR, "Invalid atom type in fix organism/birthdeath/logistic command");
+    error->all(FLERR, "Invalid atom type in fix birthdeath/simple command");
   
   deadtype = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
   if (deadtype <= 0 || deadtype > atom->ntypes)
-    error->all(FLERR, "Invalid atom type in fix organism/birthdeath/logistic command");
+    error->all(FLERR, "Invalid atom type in fix birthdeath/simple command");
 
   seed = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
 
   if (seed <= 0)
-    error->all(FLERR, "Seed must be positive in fix organism/birthdeath/logistic command");
-  
-  birthrate = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
-  deathrate = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
-
-  if (birthrate <= 0)
-    error->all(FLERR, "Birth rate must be positive in fix organism/birthdeath/logistic command");
-
-  if (deathrate <= 0)
-    error->all(FLERR, "Death rate must be positive in fix organism/birthdeath/logistic command");
+    error->all(FLERR, "Seed must be positive in fix birthdeath/simple command");
   
   shift = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
   
   if (shift < 0)
-    error->all(FLERR, "Shift must be positive in fix organism/birthdeath/logistic command");
+    error->all(FLERR, "Shift must be positive in fix birthdeath/simple command");
 
   cleanevery = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
 
-
-  exactpoisson=false;
-  
-  if (strcmp(arg[nspecified_args], "exactpoisson") == 0) {
-    if (strcmp(arg[nspecified_args+1], "yes") == 0) 
-      exactpoisson=true;
-    else if (strcmp(arg[nspecified_args+1], "no") == 0)
-      exactpoisson=false;
-    else
-      error->all(FLERR, "Either yes or no after exactpoisson in fix organism/birthdeath/logistic command");
-    nspecified_args += 2;
-  }
-  
   rng = new RanMars(lmp, seed + comm->me*100);
 
   comm_forward = 1;  
@@ -111,11 +92,6 @@ FixBirthDeathSimple::FixBirthDeathSimple(LAMMPS *lmp, int narg, char **arg) :
     (int *) memory->smalloc(comm->nprocs * sizeof(int), "MCSWAP:global_alive_list");
   global_dead_list =
     (int *) memory->smalloc(comm->nprocs * sizeof(int), "MCSWAP:global_dead_list");
-
-
-  if (birthrate/deathrate < 1.0)
-    error->all(FLERR, "Steady-state number of particles < 1 in fix organism/birthdeath/logistic command");  
-  
 
   
 }
@@ -137,15 +113,17 @@ FixBirthDeathSimple::~FixBirthDeathSimple()
 void FixBirthDeathSimple::reset_dt()
 {
   
+  double dt = update->dt;
+
+  /*
   double Nav = birthrate/deathrate;
 
-  double dt = update->dt;
   
   if (Nav*birthrate*dt > 1.0)
-    error->all(FLERR,"Birth rate in fix organism/birthdeath/logistic command is too large, multiple events will occur for given dt.");    
+    error->all(FLERR,"Birth rate in fix birthdeath/simple command is too large, multiple events will occur for given dt.");    
   else if (Nav*dt*(deathrate*(Nav-1) + birthrate) > 1.0) 
-    error->all(FLERR,"Death rate in fix organism/birthdeath/logistic command is too large, multiple events will occur for given dt.");
-
+    error->all(FLERR,"Death rate in fix birthdeath/simple command is too large, multiple events will occur for given dt.");
+  */
 }
 
  
@@ -173,6 +151,8 @@ void FixBirthDeathSimple::post_integrate()
   
   int *mask = atom->mask;
   double dt = update->dt;
+  double *division = atom->division;
+  double *death = atom->death;
 
 
 
@@ -185,83 +165,34 @@ void FixBirthDeathSimple::post_integrate()
   //                                     but need to procreate
 
 
-  if (exactpoisson) {
-    int proc = -1;
-    int birth = 0;
-    
-    // decide whether birth or death happens only on one processor
-    if (comm->me == 0) {
-      ran = rng->uniform();
-      
-      // choose processor and which atom  
-      if (ran  <= nalive*birthrate*dt) {
-	birth = 1;
-	proc = proc_dist(gen);
-	while (global_alive_list[proc] == 0) 
-	  proc = proc_dist(gen);
-	
-      } else if (ran <= nalive*dt*(deathrate*(nalive-1) + birthrate)) {
-	proc = proc_dist(gen);
-	while (global_alive_list[proc] == 0) 
-	  proc = proc_dist(gen);
-	
-	
-      }
-      
-      
-    }
-    
-    MPI_Bcast(&proc,1,MPI_INT,0,world);
-    MPI_Bcast(&birth,1,MPI_INT,0,world);
-    
-    if (proc == comm->me) {
-      atom_dist.param(decltype(atom_dist)::param_type(0,localalive-1));
-      
-      i = local_alive_list[atom_dist(gen)];
-      
-      if (birth) {
-	bool procreated = birth_from_dead(i);
-	
-	if (! procreated) {
-	  new_atoms.push_back(i);
-	}
-	
-      } else {
-	
-	atom->type[i] = deadtype;
-      }
-      
-    }
-  } else {
 
-    for (int ia = 0; ia < localalive; ia++) {
-      i = local_alive_list[ia];
+
+  for (int ia = 0; ia < localalive; ia++) {
+    i = local_alive_list[ia];
       
-      ran = rng->uniform();
+    ran = rng->uniform();
+
+    
+    if (ran  <= division[i]*dt) {
       
-      if (ran  <= birthrate*dt) {
-	
-	bool procreated = birth_from_dead(i);
-	
-	if (! procreated) {
-	  new_atoms.push_back(i);
-	}
-	
-      } else if (ran <= deathrate*(nalive-1)*dt + birthrate*dt) {
-	
-	atom->type[i] = deadtype;
-	
+      bool procreated = birth_from_dead(i);
+      
+      if (! procreated) {
+	new_atoms.push_back(i);
       }
       
+    } else if (ran <= death[i]*dt + division[i]*dt) {
+      
+      atom->type[i] = deadtype;
+      
     }
+    
   }
 
   create_new_atoms(new_atoms);
   
   comm->forward_comm(this);
   delete_dead_atoms();
-
-  
 
 }
       
