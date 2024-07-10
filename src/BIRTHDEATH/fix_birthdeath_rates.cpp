@@ -49,7 +49,7 @@ FixBirthDeathRates::FixBirthDeathRates(LAMMPS *lmp, int narg, char **arg) :
 {
   cutflag = 0;
   comm_reverse = 2;
-
+  allocated = 0;
 
   
   int iarg = 3;
