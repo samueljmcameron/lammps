@@ -203,8 +203,6 @@ class DumpCustom : public Dump {
 
 
   
-  void pack_division(int);
-  void pack_death(int);
   
 };
 

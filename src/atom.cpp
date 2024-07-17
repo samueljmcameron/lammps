@@ -212,10 +212,6 @@ Atom::Atom(LAMMPS *_lmp) : Pointers(_lmp)
 
   area = ed = em = epsilon = curvature = q_scaled = nullptr;
 
-  // BIRTHDEATH package
-
-  division = death = nullptr;
-
   // end of customization section
   // --------------------------------------------------------------------
 
@@ -562,10 +558,6 @@ void Atom::peratom_create()
   add_peratom("curvature",&curvature,DOUBLE,0);
   add_peratom("q_scaled",&q_scaled,DOUBLE,0);
 
-  // BIRTHDEATH package
-  add_peratom("division",&division,DOUBLE,0);
-  add_peratom("death",&death,DOUBLE,0);
-  
   // end of customization section
   // --------------------------------------------------------------------
 }
@@ -635,7 +627,6 @@ void Atom::set_atomflag_defaults()
   wavepacket_flag = sph_flag = 0;
   molecule_flag = molindex_flag = molatom_flag = 0;
   q_flag = mu_flag = 0;
-  alive_flag = 0;
   rmass_flag = radius_flag = omega_flag = torque_flag = angmom_flag = 0;
   temperature_flag = heatflow_flag = 0;
   vfrac_flag = spin_flag = eradius_flag = ervel_flag = erforce_flag = 0;
@@ -2996,11 +2987,6 @@ void *Atom::extract(const char *name)
   if (strcmp(name,"curvature") == 0) return (void *) curvature;
   if (strcmp(name,"q_scaled") == 0) return (void *) q_scaled;
 
-  // BIRTHDEATH package
-  if (strcmp(name,"division") == 0) return (void *) division;
-  if (strcmp(name,"death") == 0) return (void *) death;
-
-  
   // end of customization section
   // --------------------------------------------------------------------
 
@@ -3118,11 +3104,6 @@ int Atom::extract_datatype(const char *name)
   if (strcmp(name,"epsilon") == 0) return LAMMPS_DOUBLE;
   if (strcmp(name,"curvature") == 0) return LAMMPS_DOUBLE;
   if (strcmp(name,"q_unscaled") == 0) return LAMMPS_DOUBLE;
-
-  // BIRTHDEATH package
-
-  if (strcmp(name,"division") == 0) return LAMMPS_DOUBLE;
-  if (strcmp(name,"death") == 0) return LAMMPS_DOUBLE;
 
   // end of customization section
   // --------------------------------------------------------------------

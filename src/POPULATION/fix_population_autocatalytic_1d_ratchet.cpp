@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_birthdeath_simple_1d_ratchet.h"
+#include "fix_population_autocatalytic_1d_ratchet.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -43,22 +43,22 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixBirthDeathSimple1dRatchet::FixBirthDeathSimple1dRatchet(LAMMPS *lmp, int narg, char **arg) :
-  FixBirthDeathSimple1dProjection(lmp, narg, arg)
+FixPopulationAutocatalytic1dRatchet::FixPopulationAutocatalytic1dRatchet(LAMMPS *lmp, int narg, char **arg) :
+  FixPopulationAutocatalytic1dProjection(lmp, narg, arg)
 {
   // required args
 
 
   if (strcmp(arg[nspecified_args++], "fraction") != 0)
-    error->all(FLERR, "Need to specify fraction in fix birthdeath/simple/1D/ratchet command");
+    error->all(FLERR, "Need to specify fraction in fix population/autocatalytic/1D/ratchet command");
   
   double fraction = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
 
   if (fraction <= 0 || fraction >= 1) 
-    error->all(FLERR, "Invalid ratchet fraction in organism/birthdeath/1D/ratchet");
+    error->all(FLERR, "Invalid ratchet fraction in organism/population/1D/ratchet");
 
   if (strcmp(arg[nspecified_args++], "height") != 0)
-    error->all(FLERR, "Need to specify height in fix birthdeath/simple/1D/ratchet command");
+    error->all(FLERR, "Need to specify height in fix population/autocatalytic/1D/ratchet command");
   height = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
 
 
@@ -71,7 +71,7 @@ FixBirthDeathSimple1dRatchet::FixBirthDeathSimple1dRatchet(LAMMPS *lmp, int narg
 
 
 
-double FixBirthDeathSimple1dRatchet::force(double x) {
+double FixPopulationAutocatalytic1dRatchet::force(double x) {
   
   if (first_section(x)) {
     
@@ -90,7 +90,7 @@ double FixBirthDeathSimple1dRatchet::force(double x) {
 
 
 
-bool FixBirthDeathSimple1dRatchet::first_section(double x)
+bool FixPopulationAutocatalytic1dRatchet::first_section(double x)
 {
 
   double period = domain->prd[0];

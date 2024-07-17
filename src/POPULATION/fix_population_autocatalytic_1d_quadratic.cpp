@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_birthdeath_simple_1d_quadratic.h"
+#include "fix_population_autocatalytic_1d_quadratic.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -43,23 +43,23 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixBirthDeathSimple1dQuadratic::FixBirthDeathSimple1dQuadratic(LAMMPS *lmp, int narg, char **arg) :
-  FixBirthDeathSimple1dProjection(lmp, narg, arg)
+FixPopulationAutocatalytic1dQuadratic::FixPopulationAutocatalytic1dQuadratic(LAMMPS *lmp, int narg, char **arg) :
+  FixPopulationAutocatalytic1dProjection(lmp, narg, arg)
 {
 
   // required args
 
   if (strcmp(arg[nspecified_args++], "springconstant") != 0)
-    error->all(FLERR, "Need to specify springconstant in fix birthdeath/simple/1D/springconstant command");
+    error->all(FLERR, "Need to specify springconstant in fix population/autocatalytic/1D/quadratic command");
   springconstant = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
   if (strcmp(arg[nspecified_args++], "minloc") != 0)
-    error->all(FLERR, "Need to specify springconstant in fix birthdeath/simple/1D/springconstant command");
+    error->all(FLERR, "Need to specify springconstant in fix population/autocatalytic/1D/quadratic command");
   minloc = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
   
 }
 
 
-double FixBirthDeathSimple1dQuadratic::force(double x)
+double FixPopulationAutocatalytic1dQuadratic::force(double x)
 {
 
   return -springconstant*(x-minloc);

@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_birthdeath_simple_1d_projection.h"
+#include "fix_population_autocatalytic_1d_projection.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -43,11 +43,11 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixBirthDeathSimple1dProjection::FixBirthDeathSimple1dProjection(LAMMPS *lmp, int narg, char **arg) :
-  FixBirthDeathSimple(lmp, narg, arg)
+FixPopulationAutocatalytic1dProjection::FixPopulationAutocatalytic1dProjection(LAMMPS *lmp, int narg, char **arg) :
+  FixPopulationAutocatalytic(lmp, narg, arg)
 {
   if (strcmp(arg[nspecified_args++], "omega") != 0)
-    error->all(FLERR, "Need to specify omega in fix birthdeath/simple/1D command");
+    error->all(FLERR, "Need to specify omega in fix population/autocatalytic/1D command");
   omega = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
   
 }
@@ -56,7 +56,7 @@ FixBirthDeathSimple1dProjection::FixBirthDeathSimple1dProjection(LAMMPS *lmp, in
 
 /* ---------------------------------------------------------------------- */
 
-int FixBirthDeathSimple1dProjection::setmask()
+int FixPopulationAutocatalytic1dProjection::setmask()
 {
   int mask = 0;
   mask |= POST_INTEGRATE;
@@ -65,7 +65,7 @@ int FixBirthDeathSimple1dProjection::setmask()
 }
 
 
-void FixBirthDeathSimple1dProjection::post_force(int /* vflag */)
+void FixPopulationAutocatalytic1dProjection::post_force(int /* vflag */)
 {
   double **x = atom->x;
   double **f = atom->f;
@@ -81,7 +81,7 @@ void FixBirthDeathSimple1dProjection::post_force(int /* vflag */)
 
 
 
-void FixBirthDeathSimple1dProjection::procreate(int i, int j)
+void FixPopulationAutocatalytic1dProjection::divide(int i, int j)
 {
 
   double **x = atom->x;

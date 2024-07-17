@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
-   LAMMPS development team: developers@lammps.org
+   Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -11,28 +11,34 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifdef ATOM_CLASS
+#ifdef FIX_CLASS
 // clang-format off
-AtomStyle(alive,AtomVecAlive);
+FixStyle(population/autocatalytic/1D/smoothratchet,FixPopulationAutocatalytic1dSmoothRatchet);
 // clang-format on
 #else
 
-#ifndef LMP_ATOM_VEC_ALIVE_H
-#define LMP_ATOM_VEC_ALIVE_H
+#ifndef LMP_FIX_POPULATION_AUTOCATALYTIC_1D_SMOOTHRATCHET_H
+#define LMP_FIX_POPULATION_AUTOCATALYTIC_1D_SMOOTHRATCHET_H
 
-#include "atom_vec.h"
+#include "fix_population_autocatalytic_1d_projection.h"
 
 namespace LAMMPS_NS {
 
-class AtomVecAlive : virtual public AtomVec {
+class FixPopulationAutocatalytic1dSmoothRatchet : public FixPopulationAutocatalytic1dProjection {
  public:
-  AtomVecAlive(class LAMMPS *);
+  FixPopulationAutocatalytic1dSmoothRatchet(class LAMMPS *, int, char **);
 
-  void grow_pointers() override;
+  virtual double force(double) override;
+  
+ private:
 
- protected:
-  double *division;
-  double *death;
+  int n_pot;
+  double height,length,yend,normfac;
+  double binom(int,int);
+  double gfunc(double);
+  double gfunc_deriv(double);
+  double endpoint();
+  
 };
 
 }    // namespace LAMMPS_NS

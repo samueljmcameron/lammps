@@ -13,33 +13,31 @@
 
 #ifdef FIX_CLASS
 // clang-format off
-FixStyle(birthdeath/rates,FixBirthDeathRates);
+FixStyle(population/sensing,FixPopulationSensing);
 // clang-format on
 #else
 
-#ifndef LMP_FIX_BIRTHDEATH_RATES_H
-#define LMP_FIX_BIRTHDEATH_RATES_H
+#ifndef LMP_FIX_POPULATION_SENSING_H
+#define LMP_FIX_POPULATION_SENSING_H
 
-#include "fix.h"
+#include "fix_population_base.h"
 #include <random>
 
 namespace LAMMPS_NS {
 
-class FixBirthDeathRates : public Fix {
+class FixPopulationSensing : public FixPopulationBase {
  public:
-  FixBirthDeathRates(class LAMMPS *, int, char **);
-  ~FixBirthDeathRates() override;
-  int setmask() override;
+  FixPopulationSensing(class LAMMPS *, int, char **);
+  ~FixPopulationSensing() override;
   void init() override;
   void init_list(int, class NeighList *) override;
   
-  void initial_integrate(int) override;
   int pack_reverse_comm(int, int , double *) override;
   void unpack_reverse_comm(int, int *, double *) override;
 
  private:
 
-
+  virtual void compute_division_and_death_rates() override;
   void allocate();
   void coeff(char **);
 

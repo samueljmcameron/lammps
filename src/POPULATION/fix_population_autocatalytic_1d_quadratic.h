@@ -13,30 +13,26 @@
 
 #ifdef FIX_CLASS
 // clang-format off
-FixStyle(birthdeath/simple/1D/quadratic,FixBirthDeathSimple1dQuadratic);
+FixStyle(population/autocatalytic/1D/quadratic,FixPopulationAutocatalytic1dQuadratic);
 // clang-format on
 #else
 
-#ifndef LMP_FIX_BIRTHDEATH_SIMPLE_1D_QUADRATIC_H
-#define LMP_FIX_BIRTHDEATH_SIMPLE_1D_QUADRATIC_H
+#ifndef LMP_FIX_POPULATION_AUTOCATALYTIC_1D_QUADRATIC_H
+#define LMP_FIX_POPULATION_AUTOCATALYTIC_1D_QUADRATIC_H
 
-#include "fix_birthdeath_simple_1d_projection.h"
+#include "fix_population_autocatalytic_1d_projection.h"
 
 namespace LAMMPS_NS {
 
-class FixBirthDeathSimple1dQuadratic : public FixBirthDeathSimple1dProjection {
+class FixPopulationAutocatalytic1dQuadratic : public FixPopulationAutocatalytic1dProjection {
  public:
-  FixBirthDeathSimple1dQuadratic(class LAMMPS *, int, char **);
+  FixPopulationAutocatalytic1dQuadratic(class LAMMPS *, int, char **);
 
   virtual double force(double) override;
   
  private:
 
   double springconstant,minloc;
-  double binom(int,int);
-  double gfunc(double);
-  double gfunc_deriv(double);
-  double endpoint();
   
 };
 

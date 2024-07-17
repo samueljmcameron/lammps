@@ -13,32 +13,32 @@
 
 #ifdef FIX_CLASS
 // clang-format off
-FixStyle(birthdeath/simple/1D/smoothratchet,FixBirthDeathSimple1dSmoothRatchet);
+FixStyle(population/autocatalytic,FixPopulationAutocatalytic);
 // clang-format on
 #else
 
-#ifndef LMP_FIX_BIRTHDEATH_SIMPLE_1D_SMOOTHRATCHET_H
-#define LMP_FIX_BIRTHDEATH_SIMPLE_1D_SMOOTHRATCHET_H
+#ifndef LMP_FIX_POPULATION_AUTOCATALYTIC_H
+#define LMP_FIX_POPULATION_AUTOCATALYTIC_H
 
-#include "fix_birthdeath_simple_1d_projection.h"
+#include "fix_population_base.h"
 
 namespace LAMMPS_NS {
 
-class FixBirthDeathSimple1dSmoothRatchet : public FixBirthDeathSimple1dProjection {
+class FixPopulationAutocatalytic : public FixPopulationBase {
  public:
-  FixBirthDeathSimple1dSmoothRatchet(class LAMMPS *, int, char **);
-
-  virtual double force(double) override;
+  FixPopulationAutocatalytic(class LAMMPS *, int, char **);
+  void reset_dt() override;
   
+
  private:
 
-  int n_pot;
-  double height,length,yend,normfac;
-  double binom(int,int);
-  double gfunc(double);
-  double gfunc_deriv(double);
-  double endpoint();
+  virtual void compute_division_and_death_rates() override;
+
   
+protected:
+  double divisionrate; // rate of division per cell
+  double deathrate; // rate of death per cell divided by number of cells minus 1;
+
 };
 
 }    // namespace LAMMPS_NS

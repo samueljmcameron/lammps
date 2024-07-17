@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_birthdeath_simple_1d_smoothratchet.h"
+#include "fix_population_autocatalytic_1d_smoothratchet.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -43,17 +43,17 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixBirthDeathSimple1dSmoothRatchet::FixBirthDeathSimple1dSmoothRatchet(LAMMPS *lmp, int narg, char **arg) :
-  FixBirthDeathSimple1dProjection(lmp, narg, arg)
+FixPopulationAutocatalytic1dSmoothRatchet::FixPopulationAutocatalytic1dSmoothRatchet(LAMMPS *lmp, int narg, char **arg) :
+  FixPopulationAutocatalytic1dProjection(lmp, narg, arg)
 {
 
   // required args
 
   if (strcmp(arg[nspecified_args++], "nterms") != 0)
-    error->all(FLERR, "Need to specify nterms in fix birthdeath/simple/1D/smoothratchet command");
+    error->all(FLERR, "Need to specify nterms in fix population/autocatalytic/1D/smoothratchet command");
   n_pot = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
   if (strcmp(arg[nspecified_args++], "height") != 0)
-    error->all(FLERR, "Need to specify height in fix birthdeath/simple/1D/smoothratchet command");
+    error->all(FLERR, "Need to specify height in fix population/autocatalytic/1D/smoothratchet command");
   height = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
 
   length = domain->prd[0];
@@ -64,7 +64,7 @@ FixBirthDeathSimple1dSmoothRatchet::FixBirthDeathSimple1dSmoothRatchet(LAMMPS *l
 }
 
 
-double FixBirthDeathSimple1dSmoothRatchet::force(double x)
+double FixPopulationAutocatalytic1dSmoothRatchet::force(double x)
 {
 
   double y = 2*M_PI/length*x + yend -M_PI;
@@ -74,7 +74,7 @@ double FixBirthDeathSimple1dSmoothRatchet::force(double x)
 
 
 
-double FixBirthDeathSimple1dSmoothRatchet::binom(int n, int k)
+double FixPopulationAutocatalytic1dSmoothRatchet::binom(int n, int k)
 {
   if (n == k) return 1.0;
   if (k == 0) return 1.0;
@@ -89,7 +89,7 @@ double FixBirthDeathSimple1dSmoothRatchet::binom(int n, int k)
   return output;
 }
 
-double FixBirthDeathSimple1dSmoothRatchet::gfunc(double x)
+double FixPopulationAutocatalytic1dSmoothRatchet::gfunc(double x)
 {
 
   int n = n_pot;
@@ -101,14 +101,14 @@ double FixBirthDeathSimple1dSmoothRatchet::gfunc(double x)
 
 }
 
-double FixBirthDeathSimple1dSmoothRatchet::gfunc_deriv(double x)
+double FixPopulationAutocatalytic1dSmoothRatchet::gfunc_deriv(double x)
 {
   int n = n_pot;
   return -pow(2,(2*n-1))/binom(2*n,n)*pow(cos(x/2.),2*n)+0.5;
 
 }
 
-double FixBirthDeathSimple1dSmoothRatchet::endpoint() {
+double FixPopulationAutocatalytic1dSmoothRatchet::endpoint() {
 
   int n = n_pot;
   return 2*acos(0.5*(pow(binom(2*n,n),(1./(2*n)))));

@@ -44,8 +44,7 @@ enum{ID,MOL,PROC,PROCP1,TYPE,ELEMENT,MASS,
      Q,MUX,MUY,MUZ,MU,RADIUS,DIAMETER,HEATFLOW,TEMPERATURE,
      OMEGAX,OMEGAY,OMEGAZ,ANGMOMX,ANGMOMY,ANGMOMZ,
      TQX,TQY,TQZ,
-     COMPUTE,FIX,VARIABLE,IVEC,DVEC,IARRAY,DARRAY,
-     DIVISION,DEATH};
+     COMPUTE,FIX,VARIABLE,IVEC,DVEC,IARRAY,DARRAY};
 enum{LT,LE,GT,GE,EQ,NEQ,XOR};
 
 #define ONEFIELD 32
@@ -997,16 +996,6 @@ int DumpCustom::count()
         ptr = &atom->torque[0][2];
         nstride = 3;
 
-      } else if (thresh_array[ithresh] == DIVISION) {
-        if (!atom->alive_flag)
-          error->all(FLERR,"Threshold for an atom property that isn't allocated");
-        ptr = &atom->division[0];
-        nstride = 1;
-      } else if (thresh_array[ithresh] == DEATH) {
-        if (!atom->alive_flag)
-          error->all(FLERR,"Threshold for an atom property that isn't allocated");
-        ptr = &atom->death[0];
-        nstride = 1;
       } else if (thresh_array[ithresh] == COMPUTE) {
         i = nfield + ithresh;
         if (argindex[i] == 0) {
@@ -1461,16 +1450,7 @@ int DumpCustom::parse_fields(int narg, char **arg)
         error->all(FLERR,"Dumping an atom property that isn't allocated");
       pack_choice[iarg] = &DumpCustom::pack_tqz;
       vtype[iarg] = Dump::DOUBLE;
-    }  else if (strcmp(arg[iarg],"division") == 0) {
-      if (!atom->alive_flag)
-        error->all(FLERR,"Dumping an atom property that isn't allocated");
-      pack_choice[iarg] = &DumpCustom::pack_division;
-      vtype[iarg] = Dump::DOUBLE;
-    } else if (strcmp(arg[iarg],"death") == 0) {
-      if (!atom->alive_flag)
-        error->all(FLERR,"Dumping an atom property that isn't allocated");
-      pack_choice[iarg] = &DumpCustom::pack_death;
-      vtype[iarg] = Dump::DOUBLE;
+      
     // compute or fix or variable or custom vector/array
 
     } else {
@@ -1906,8 +1886,6 @@ int DumpCustom::modify_param(int narg, char **arg)
     else if (strcmp(arg[1],"tqx") == 0) thresh_array[nthresh] = TQX;
     else if (strcmp(arg[1],"tqy") == 0) thresh_array[nthresh] = TQY;
     else if (strcmp(arg[1],"tqz") == 0) thresh_array[nthresh] = TQZ;
-    else if (strcmp(arg[1],"division") == 0) thresh_array[nthresh] = DIVISION;
-    else if (strcmp(arg[1],"death") == 0) thresh_array[nthresh] = DEATH;
 
     // compute or fix or variable or custom vector/array
     // must grow field2index and argindex arrays, since access is beyond nfield
@@ -2939,31 +2917,6 @@ void DumpCustom::pack_tqz(int n)
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = torque[clist[i]][2];
-    n += size_one;
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_division(int n)
-{
-  double *division = atom->division;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = division[clist[i]];
-    n += size_one;
-  }
-}
-
-
-/* ---------------------------------------------------------------------- */
-
-void DumpCustom::pack_death(int n)
-{
-  double *death = atom->death;
-
-  for (int i = 0; i < nchoose; i++) {
-    buf[n] = death[clist[i]];
     n += size_one;
   }
 }

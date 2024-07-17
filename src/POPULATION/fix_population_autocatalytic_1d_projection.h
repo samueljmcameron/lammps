@@ -11,33 +11,27 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifdef FIX_CLASS
-// clang-format off
-FixStyle(birthdeath/simple/1D/ratchet,FixBirthDeathSimple1dRatchet);
-// clang-format on
-#else
 
-#ifndef LMP_FIX_BIRTHDEATH_SIMPLE_1D_RATCHET_H
-#define LMP_FIX_BIRTHDEATH_SIMPLE_1D_RATCHET_H
+#ifndef LMP_FIX_POPULATION_AUTOCATALYTIC_1D_PROJECTION_H
+#define LMP_FIX_POPULATION_AUTOCATALYTIC_1D_PROJECTION_H
 
-#include "fix_birthdeath_simple_1d_projection.h"
+#include "fix_population_autocatalytic.h"
 
 namespace LAMMPS_NS {
 
-class FixBirthDeathSimple1dRatchet : public FixBirthDeathSimple1dProjection {
+class FixPopulationAutocatalytic1dProjection : public FixPopulationAutocatalytic {
  public:
-  FixBirthDeathSimple1dRatchet(class LAMMPS *, int, char **);
-  
-  virtual double force(double) override;
-  
+  FixPopulationAutocatalytic1dProjection(class LAMMPS *, int, char **);
+  int setmask() override;
+  void post_force(int) override;
+  virtual double force(double) = 0;
+ protected:
+  double omega;
  private:
+  virtual void divide(int,int) override;
 
-  bool first_section(double );
-
-  double height, first_length, second_length, midvertex;
 };
 
 }    // namespace LAMMPS_NS
 
-#endif
 #endif
