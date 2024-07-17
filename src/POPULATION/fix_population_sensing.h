@@ -50,7 +50,6 @@ class FixPopulationSensing : public FixPopulationBase {
   double **sigma;     // effective diameter for i-j types
   double **width;     // width of sigmoid function for i-j types
 
-  int allocated;
   int cutflag;
   double cutoff_user;
   double mycutneigh;       // user-specified cutoff + neighbor skin

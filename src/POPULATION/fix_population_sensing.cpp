@@ -53,7 +53,6 @@ FixPopulationSensing::FixPopulationSensing(LAMMPS *lmp, int narg, char **arg) :
 
   cutflag = 0;
   comm_reverse = 2;
-  allocated = 0;
 
 
   shift = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
@@ -77,6 +76,7 @@ FixPopulationSensing::FixPopulationSensing(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR, "Invalid coefficients in fix population/sensing command (need multiple of 8).");
 
 
+  allocate();
   const int rounds = (narg-iarg )/ncoeff;
 
   for (int i = 0; i < rounds; i++) {
@@ -89,16 +89,6 @@ FixPopulationSensing::FixPopulationSensing(LAMMPS *lmp, int narg, char **arg) :
     }
   }
 
-  for (int i = 1; i <= atom->ntypes; i++) {
-    for (int j = 1; j <= atom->ntypes; j++) {
-      setflag[i][j] = 0;
-      b0[i][j] = 0.0;
-      d0[i][j] = 0.0;
-      sigma[i][j] = 0.0;
-      width[i][j] = 1.0; // 1.0 to avoid divide by zero
-      cnum[i][j] = 1.0;  // 1.0 to avoid divide by zero
-    }
-  }
   
 
 }
@@ -107,15 +97,15 @@ FixPopulationSensing::FixPopulationSensing(LAMMPS *lmp, int narg, char **arg) :
 FixPopulationSensing::~FixPopulationSensing()
 {
 
-  if (allocated) {
-    memory->destroy(setflag);
 
-    memory->destroy(b0);
-    memory->destroy(d0);
-    memory->destroy(sigma);
-    memory->destroy(width);
-    memory->destroy(cnum);    
-  }
+  memory->destroy(setflag);
+
+  memory->destroy(b0);
+  memory->destroy(d0);
+  memory->destroy(sigma);
+  memory->destroy(width);
+  memory->destroy(cnum);    
+
 }
 
 
@@ -127,7 +117,7 @@ FixPopulationSensing::~FixPopulationSensing()
 
 void FixPopulationSensing::allocate()
 {
-  allocated = 1;
+
   int n = atom->ntypes + 1;
 
   memory->create(setflag, n, n, "fix:setflag");
@@ -139,6 +129,20 @@ void FixPopulationSensing::allocate()
   memory->create(sigma, n, n, "fix:sigma");
   memory->create(width, n, n, "fix:width");
   memory->create(cnum, n, n, "fix:cnum");
+
+
+
+  for (int i = 1; i <= atom->ntypes; i++) {
+    for (int j = 1; j <= atom->ntypes; j++) {
+      setflag[i][j] = 0;
+      b0[i][j] = 0.0;
+      d0[i][j] = 0.0;
+      sigma[i][j] = 0.0;
+      width[i][j] = 1.0; // 1.0 to avoid divide by zero
+      cnum[i][j] = 1.0;  // 1.0 to avoid divide by zero
+    }
+  }
+  
 
 }
 
@@ -187,8 +191,6 @@ void FixPopulationSensing::init_list(int /*id*/, NeighList *ptr)
 void FixPopulationSensing::coeff(char **arg)
 {
 
-  if (!allocated) allocate();
-
   int ilo, ihi, jlo, jhi;
   utils::bounds(FLERR, arg[0], 1, atom->ntypes, ilo, ihi, error);
   utils::bounds(FLERR, arg[1], 1, atom->ntypes, jlo, jhi, error);
@@ -209,9 +211,6 @@ void FixPopulationSensing::coeff(char **arg)
       cnum[i][j] = cnum_one;
       setflag[i][j] = 1;
       count++;
-
-      printf("%d %d b0 = %lf, d0 = %lf, sigma = %lf, width = %lf, cnum = %lf, setflag = %d\n",
-	     i,j,b0[i][j],d0[i][j],sigma[i][j],width[i][j],cnum[i][j],setflag[i][j]);
       
     }
   }
@@ -254,7 +253,6 @@ void FixPopulationSensing::compute_division_and_death_rates()
 
       divdeath_array[i][0] = b0[type[i]][type[i]];
       divdeath_array[i][1] = 0.0;
-      printf("b0[%d][%d] = %lf\n",type[i],type[i],b0[type[i]][type[i]]);
     }
 
   } else {

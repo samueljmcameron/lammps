@@ -49,7 +49,7 @@ FixPopulationAutocatalytic::FixPopulationAutocatalytic(LAMMPS *lmp, int narg, ch
 
   divisionrate = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);
   
-  if (shift < 0)
+  if (divisionrate < 0)
     error->all(FLERR, "divisionrate must be positive in fix population/autocatalytic command");
 
   deathrate = utils::numeric(FLERR, arg[nspecified_args++], false, lmp);

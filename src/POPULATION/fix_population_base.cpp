@@ -100,7 +100,11 @@ FixPopulationBase::FixPopulationBase(LAMMPS *lmp, int narg, char **arg) :
   // resize arrays in this fix by adding a callback to atom (so atom will handle resizing)
   atom->add_callback(Atom::GROW);
   
-  
+  for (int i = 0; i < atom->nlocal; i++) {
+    divdeath_array[i][0] = 0.0;
+    divdeath_array[i][1] = 0.0;
+  }
+ 
 
   
 }
@@ -142,11 +146,6 @@ int FixPopulationBase::setmask()
 
 void FixPopulationBase::init()
 {
-  // set divdeath to be zero 
-  for (int i = 0; i < atom->nlocal; i++) {
-    divdeath_array[i][0] = 0.0;
-    divdeath_array[i][1] = 0.0;
-  }
 }
 
 
