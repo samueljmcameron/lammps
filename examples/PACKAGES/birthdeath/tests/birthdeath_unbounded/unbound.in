@@ -24,18 +24,18 @@ group alive dynamic all var is_alive
 
 
 fix integrator alive brownian 1e-3 219840 rng uniform gamma_t 1.0 final_integrate
-fix bd_compute all birthdeath/rates coeff 1 1 1300.0 3000.0 0.9 0.001 6.0
+fix bd_compute all birthdeath/rates coeff 1 1 1.0 1.0 0.9 0.001 6.0
 fix bd_propagate all birthdeath/simple 1 2 489019 0.7 1
 
 
 #####run#####
 timestep        1e-04
-dump            1 all custom 1 output.dump id type x y z division death
+dump            1 all custom 1000 output.dump id type x y z division death
 dump_modify     1 sort id        
 thermo_style    custom step f_bd_propagate[*]
-thermo          1
+thermo          1000
 log             log.active_dipole
-run             10
+run             1000000
 
 
 
