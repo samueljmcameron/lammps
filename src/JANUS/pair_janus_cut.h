@@ -58,10 +58,10 @@ private:
   double *p1_i, *p1_j, *p2_i, *p2_j, *connector_i, *connector_j;
   
   void Fpp(const double *, const double *, const double *,
-	   double *); // Xichen's 2.4
+	   double *, const int, const int); // Xichen's 2.4
 
   void Tpp(const double *, const double *, const double *,
-	   double *); // Xichen's 2.7
+	   double *, const int, const int); // Xichen's 2.7
 
   void cross3_addition(const double *, const double *, double *);
 

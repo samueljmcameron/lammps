@@ -132,7 +132,7 @@ void PairJanusCut::compute(int eflag, int vflag)
       }
     }
 
-
+    itype = type[i];
 
     if (self_interacting) {
 
@@ -146,7 +146,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	dummy_connector[dim] = -2*connector_i[dim];
       
       // compute the term from equation 2.24
-      Tpp(p1_i,p2_i,dummy_connector,T_i_dummy);
+      Tpp(p1_i,p2_i,dummy_connector,T_i_dummy,itype,itype);
       
       
       // second term of equation 2.24
@@ -154,11 +154,11 @@ void PairJanusCut::compute(int eflag, int vflag)
 	dummy_connector[dim] = 2*connector_i[dim];
       
       // compute the term from equation 2.24
-      Tpp(p2_i,p1_i,dummy_connector,T_i_dummy);
+      Tpp(p2_i,p1_i,dummy_connector,T_i_dummy,itype,itype);
       
       
       // third term of equation 2.24
-      Fpp(p1_i,p2_i,dummy_connector,Fdummy);
+      Fpp(p1_i,p2_i,dummy_connector,Fdummy,itype,itype);
       
       cross3_addition(dummy_connector,Fdummy,T_i_dummy);
       
@@ -166,7 +166,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	torque[i][dim] += T_i_dummy[dim];
     }
       
-    itype = type[i];
+    //itype = type[i];
     jlist = firstneigh[i];
     jnum = numneigh[i];
 
@@ -214,7 +214,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  dummy_distance[dim] = (connector_j[dim] - connector_i[dim])  + rij[dim];
 
 	// compute the term from equation 2.5
-	Fpp(p1_i,p1_j,dummy_distance,Fdummy);
+	Fpp(p1_i,p1_j,dummy_distance,Fdummy,itype,jtype);
 
 	// store the force in cumulative force
 	for (int dim = 0; dim < 3; dim++)
@@ -224,7 +224,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	cross3_addition(connector_j,Fdummy,T_j_dummy);
 
 	// compute the term from equation 2.22
-	Tpp(p1_j,p1_i,dummy_distance,T_j_dummy);
+	Tpp(p1_j,p1_i,dummy_distance,T_j_dummy,itype,jtype);
 
 	
 	// sign change
@@ -235,7 +235,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	cross3_addition(connector_i,Fdummy,T_i_dummy);
 
 	// compute the term from equation 2.19
-	Tpp(p1_i,p1_j,dummy_distance,T_i_dummy);
+	Tpp(p1_i,p1_j,dummy_distance,T_i_dummy,itype,jtype);
 
 
 
@@ -248,7 +248,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  dummy_distance[dim] = (connector_j[dim] + connector_i[dim])  + rij[dim];
 
 	// compute the term from equation 2.5
-	Fpp(p2_i,p1_j,dummy_distance,Fdummy);
+	Fpp(p2_i,p1_j,dummy_distance,Fdummy,itype,jtype);
 
 	
 	for (int dim = 0; dim < 3; dim++)
@@ -258,7 +258,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	cross3_addition(connector_i,Fdummy,T_i_dummy);
 
 	// compute the term from equation 2.19
-	Tpp(p2_i,p1_j,dummy_distance,T_i_dummy);
+	Tpp(p2_i,p1_j,dummy_distance,T_i_dummy,itype,jtype);
 
 
 	// sign change
@@ -269,7 +269,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	cross3_addition(connector_j,Fdummy,T_j_dummy);
 
 	// compute the term from equation 2.22
-	Tpp(p1_j,p2_i,dummy_distance,T_j_dummy);
+	Tpp(p1_j,p2_i,dummy_distance,T_j_dummy,itype,jtype);
 
 
 
@@ -279,7 +279,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  dummy_distance[dim] = -(connector_j[dim] + connector_i[dim])  + rij[dim];
 
 	// compute the term from equation 2.5
-	Fpp(p1_i,p2_j,dummy_distance,Fdummy);
+	Fpp(p1_i,p2_j,dummy_distance,Fdummy,itype,jtype);
 
 	for (int dim = 0; dim < 3; dim++)
 	  Fcumulative[dim] += Fdummy[dim];
@@ -288,7 +288,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	cross3_addition(connector_j,Fdummy,T_j_dummy);
 
 	// compute the term from equation 2.22
-	Tpp(p2_j,p1_i,dummy_distance,T_j_dummy);
+	Tpp(p2_j,p1_i,dummy_distance,T_j_dummy,itype,jtype);
 
 	// sign change
 	for (int dim = 0; dim < 3; dim++)
@@ -298,7 +298,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	cross3_addition(connector_i,Fdummy,T_i_dummy);
 
 	// compute the term from equation 2.19
-	Tpp(p1_i,p2_j,dummy_distance,T_i_dummy);
+	Tpp(p1_i,p2_j,dummy_distance,T_i_dummy,itype,jtype);
 
 
 
@@ -308,7 +308,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	  dummy_distance[dim] = -(connector_j[dim] - connector_i[dim])  + rij[dim];
 
 	// compute the term from equation 2.5
-	Fpp(p2_i,p2_j,dummy_distance,Fdummy);
+	Fpp(p2_i,p2_j,dummy_distance,Fdummy,itype,jtype);
 
 	for (int dim = 0; dim < 3; dim++)
 	  Fcumulative[dim] += Fdummy[dim];
@@ -317,7 +317,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	cross3_addition(connector_i,Fdummy,T_i_dummy);
 
 	// compute the term from equation 2.19
-	Tpp(p2_i,p2_j,dummy_distance,T_i_dummy);
+	Tpp(p2_i,p2_j,dummy_distance,T_i_dummy,itype,jtype);
 
 	// sign change
 	for (int dim = 0; dim < 3; dim++)
@@ -327,7 +327,7 @@ void PairJanusCut::compute(int eflag, int vflag)
 	cross3_addition(connector_j,Fdummy,T_j_dummy);
 
 	// compute the term from equation 2.22
-	Tpp(p2_j,p2_i,dummy_distance,T_j_dummy);
+	Tpp(p2_j,p2_i,dummy_distance,T_j_dummy,itype,jtype);
 
 	
 	for (int dim = 0; dim < 3; dim++)
@@ -649,7 +649,7 @@ void *PairJanusCut::extract(const char *str, int &dim)
 
 
 void PairJanusCut::Fpp(const double *pi, const double *pj, const double *rij,
-			     double *F)
+			     double *F, const int itype, const int jtype)
 
 // NOT A CUMULATIVE SUM OF FORCES
 {
@@ -657,6 +657,21 @@ void PairJanusCut::Fpp(const double *pi, const double *pj, const double *rij,
   double r = MathExtra::len3(rij);
   double r5 = r*r*r*r*r;
   double r7 = r5*r*r;
+  //251024 define local cutoff
+  double tmp_cut = cut[itype][jtype];
+	
+
+  //140824 adding a smooth cutoff at cut_global, following LAMMPS pair dipole shift.
+  double r3 = r*r*r;
+  double r4 = r3*r;
+  
+  //double cut3 = cut_global*cut_global*cut_global;
+  double cut3 = tmp_cut*tmp_cut*tmp_cut;
+  //double cut4 = cut3*cut_global;      
+  double cut4 = cut3*tmp_cut;
+
+  double pref1 = 1-r4/cut4;
+  double pref2 = 1-4*r3/cut3+3*r4/cut4;
 
   double pi_dot_pj = MathExtra::dot3(pi,pj);
   double pi_dot_rij = MathExtra::dot3(pi,rij);
@@ -664,29 +679,40 @@ void PairJanusCut::Fpp(const double *pi, const double *pj, const double *rij,
 
 
   for (int dim = 0; dim < 3; dim++) 
-    F[dim] = (3./r5*pi_dot_pj*rij[dim] - 15/r7*pi_dot_rij*pj_dot_rij*rij[dim]
-	      + 3/r5*(pj_dot_rij*pi[dim] + pi_dot_rij*pj[dim]));
+    F[dim] = 3./r5*(pref1*(pi_dot_pj-3./(r*r)*pi_dot_rij*pj_dot_rij)*rij[dim] + pref2*(pj_dot_rij*pi[dim] + pi_dot_rij*pj[dim]-2./(r*r)*pi_dot_rij*pj_dot_rij*rij[dim]));	  
 
   return;
 
 }
 
 void PairJanusCut::Tpp(const double *pi, const double *pj, const double *rij,
-		       double *T)
+		       double *T, const int itype, const int jtype)
 // A CUMULATIVE SUM OF TORQUES
 {
   double r = MathExtra::len3(rij);
   double r3 = r*r*r;
   double r5 = r3*r*r;
+  //251024 define local cutoff
+  double tmp_cut = cut[itype][jtype];
+  
+  //140824 adding a smooth cutoff at cut_global, following LAMMPS pair dipole shift.
+  double r4 = r3*r;
+  //double cut3 = cut_global*cut_global*cut_global;
+  double cut3 = tmp_cut*tmp_cut*tmp_cut;
+  //double cut4 = cut3*cut_global;	
+  double cut4 = cut3*tmp_cut;
+  double pref = 1-4*r3/cut3+3*r4/cut4;
 
   double pj_dot_rij = MathExtra::dot3(pj,rij);
+
+	
 
   MathExtra::cross3(pi,pj,cross_dummy);
   MathExtra::cross3(pi,rij,p_cross_r);
 
   
   for (int dim = 0; dim < 3; dim ++ )
-    T[dim] += -1./r3*cross_dummy[dim] + 3./r5*pj_dot_rij*p_cross_r[dim];
+    T[dim] += pref*(-1./r3*cross_dummy[dim] + 3./r5*pj_dot_rij*p_cross_r[dim]);
 
   return;
 
