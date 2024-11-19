@@ -24,6 +24,8 @@ class FixPopulationAutocatalytic1dProjection : public FixPopulationAutocatalytic
   FixPopulationAutocatalytic1dProjection(class LAMMPS *, int, char **);
   int setmask() override;
   void post_force(int) override;
+  void setup(int) override;
+  void min_setup(int) override;
   virtual double force(double) = 0;
  protected:
   double omega;

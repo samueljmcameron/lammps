@@ -56,6 +56,22 @@ FixPopulationAutocatalytic1dProjection::FixPopulationAutocatalytic1dProjection(L
 
 /* ---------------------------------------------------------------------- */
 
+void FixPopulationAutocatalytic1dProjection::setup(int vflag)
+{
+  post_force(vflag);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixPopulationAutocatalytic1dProjection::min_setup(int vflag)
+{
+  post_force(vflag);
+}
+
+
+
+/* ---------------------------------------------------------------------- */
+
 int FixPopulationAutocatalytic1dProjection::setmask()
 {
   int mask = 0;
