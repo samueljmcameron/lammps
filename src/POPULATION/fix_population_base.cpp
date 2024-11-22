@@ -197,8 +197,8 @@ void FixPopulationBase::post_integrate()
   
   count_vitals();  // create alive_indices and compute nalive, ndead
 
-  std::vector<int> new_atoms; // array to store parents which have no nearby free atoms
-  //                                     but need to divide
+  // array to store parents which have no nearby free atoms
+  std::vector<int> dividing_from_scratch_atoms; 
 
 
   int any_dividing_atoms_flag = 0;
@@ -216,13 +216,12 @@ void FixPopulationBase::post_integrate()
     if (ran  <= divdeath_array[i][0]*dt) { // if true then division event will occur
 
       any_dividing_atoms_flag = 1;
-      // attempt division by recycling dead atom into a new alive atom which will be a daughter of atom i (along with atom i itself)
-      bool reproduced = birth_from_dead(i);
+      
+      // recycle local dead atom into an alive atom if possible
+      bool recycled = recycle_from_dead(i);
 
-
-      // new alive atom must be created from scratch which will be a daughter of atom i (along with atom i itself)
-      if (! reproduced) {
-	new_atoms.push_back(i);
+      if (! recycled) { // alive atom must be created from scratch 
+	dividing_from_scratch_atoms.push_back(i);
       }
       
     } else if (ran <= (divdeath_array[i][0] + divdeath_array[i][1])*dt) { // if true then death event occurs
@@ -233,7 +232,7 @@ void FixPopulationBase::post_integrate()
     
   }
 
-  create_new_atoms(new_atoms);
+  create_new_atoms(dividing_from_scratch_atoms);
   
 
 
@@ -416,22 +415,22 @@ void FixPopulationBase::create_new_atoms(const std::vector<int> &new_atoms)
    (local) deadtype atom into one of its daughters.  */
 /* ---------------------------------------------------------------------- */
 
-bool FixPopulationBase::birth_from_dead(int i) {
+bool FixPopulationBase::recycle_from_dead(int i) {
   
-  bool reproduced = false;
+  bool recycled = false;
 
   for (int j = 0;  j < atom->nlocal; j++) {
     
     
     if (atom->type[j] == deadtype) {
       divide(i,j);
-      reproduced = true;
+      recycled = true;
       break;
     }
 
   }
 
-  return reproduced;
+  return recycled;
 }
 
 /* ---------------------------------------------------------------------- */

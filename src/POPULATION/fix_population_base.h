@@ -33,7 +33,7 @@ class FixPopulationBase : public Fix {
   void grow_arrays(int ) override;
 
  private:
-  bool birth_from_dead(int);
+  bool recycle_from_dead(int);
   void create_new_atoms(const std::vector<int> &);
   void delete_dead_atoms();
   void count_vitals();
