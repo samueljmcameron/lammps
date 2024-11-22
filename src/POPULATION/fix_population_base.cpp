@@ -201,6 +201,7 @@ void FixPopulationBase::post_integrate()
   //                                     but need to divide
 
 
+  int any_dividing_atoms_flag = 0;
   // update divdeath_array
   compute_division_and_death_rates();
 
@@ -214,6 +215,7 @@ void FixPopulationBase::post_integrate()
     
     if (ran  <= divdeath_array[i][0]*dt) { // if true then division event will occur
 
+      any_dividing_atoms_flag = 1;
       // attempt division by recycling dead atom into a new alive atom which will be a daughter of atom i (along with atom i itself)
       bool reproduced = birth_from_dead(i);
 
@@ -233,12 +235,17 @@ void FixPopulationBase::post_integrate()
 
   create_new_atoms(new_atoms);
   
-  comm->forward_comm(this);
+
 
   if (update->ntimestep % cleanevery == 0) // delete dead atoms if necessary
     delete_dead_atoms();
 
+  int divisions_occured;      
+  MPI_Allreduce(&any_dividing_atoms_flag, &divisions_occured, 1, MPI_INT, MPI_SUM, world);
 
+  if (! divisions_occured)
+    comm->forward_comm(this);
+  
 }
       
 
