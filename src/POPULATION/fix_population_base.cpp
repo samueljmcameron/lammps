@@ -186,9 +186,6 @@ void FixPopulationBase::grow_arrays(int nmax)
 void FixPopulationBase::post_integrate()
 {
 
-
-
-  
   int *mask = atom->mask;
   double dt = update->dt;
 
@@ -234,8 +231,6 @@ void FixPopulationBase::post_integrate()
 
   create_new_atoms(dividing_from_scratch_atoms);
   
-
-
   if (update->ntimestep % cleanevery == 0) // delete dead atoms if necessary
     delete_dead_atoms();
 
@@ -246,106 +241,82 @@ void FixPopulationBase::post_integrate()
     comm->forward_comm(this);
   
 }
-      
 
-/* ----------------------------------------------------------------------
-   Pack atom->type (since this
-   fix may change alivetype atoms to deadtype atoms and vice versa)
----------------------------------------------------------------------- */
 
-int FixPopulationBase::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
+/* ---------------------------------------------------------------------- */
+/* Store atoms which are alive in alive_indices and count total
+   number of alive atoms and dead atoms across all processors. */
+/* ---------------------------------------------------------------------- */
+
+void FixPopulationBase::count_vitals()
 {
-  int i, j, m;
+  
+  localalive = 0;
+  localdead = 0;
 
-  tagint *tag = atom->tag;
-  int *type = atom->type;
-
-  m = 0;
-
-  for (i = 0; i < n; i++) {
-    j = list[i];
-    buf[m++] = ubuf(type[j]).d;
+  for (int i = 0; i < atom->nlocal; i++) {
+    if (atom->mask[i] & groupbit) {
+      if (atom->type[i] == alivetype) {
+	alive_indices[localalive++] = i;
+      } else if (atom->type[i] == deadtype) {
+	dead_indices[localdead++] = i;
+      }
+    }
   }
 
-  return m;
+
+  MPI_Allgather(&localalive,1,MPI_INT,&(nalive_per_proc[0]),1,MPI_INT,world);
+  MPI_Allgather(&localdead,1,MPI_INT,&(ndead_per_proc[0]),1,MPI_INT,world);
+  
+  
+  MPI_Allreduce(&localalive, &nalive, 1, MPI_INT, MPI_SUM, world);
+  MPI_Allreduce(&localdead, &ndead, 1, MPI_INT, MPI_SUM, world);
+
+  int sum = 0;
+
+  for (int i = 0; i < comm->nprocs; i++)
+    sum += nalive_per_proc[i];
+
+  if (sum != nalive)
+    printf("ERROR sum = %d but nalive = %d !!!!\n\n\n\n\n\n",sum,nalive);
+
+  sum = 0;
+
+  for (int i = 0; i < comm->nprocs; i++)
+    sum += ndead_per_proc[i];
+
+  if (sum != ndead)
+    printf("ERROR sum = %d but ndead = %d !!!!\n\n\n\n\n\n",sum,ndead);
+  
+
+  return;
 }
 
 
+/* ---------------------------------------------------------------------- */
+/* For atom i which is alivetype try and divide by converting a
+   (local) deadtype atom into one of its daughters.  */
+/* ---------------------------------------------------------------------- */
 
-/* ----------------------------------------------------------------------
-   Unpack atom->type
----------------------------------------------------------------------- */
-void FixPopulationBase::unpack_forward_comm(int n, int first, double *buf)
-{
-  int i, m, last;
+bool FixPopulationBase::recycle_from_dead(int i) {
+  
+  bool recycled = false;
 
-  tagint *tag = atom->tag;
-  int *type = atom->type;
+  for (int j = 0;  j < atom->nlocal; j++) {
+    
+    
+    if (atom->type[j] == deadtype) {
+      divide(i,j);
+      recycled = true;
+      break;
+    }
 
-  m = 0;
-  last = first + n;
-
-  for (i = first; i < last; i++) {
-    type[i] = (int) ubuf(buf[m++]).i; 
   }
 
+  return recycled;
 }
 
-/* ----------------------------------------------------------------------
-   Delete dead atoms from the simulation (forces a reneighbor if there
-   are any deadtype atoms so probably don't do this every timestep)
----------------------------------------------------------------------- */
-void FixPopulationBase::delete_dead_atoms()
-{
 
-  bigint natoms_previous = atom->natoms;
-  int nlocal = atom->nlocal;
-
-
-  std::vector<int> dlist(nlocal);   // vector of atoms to be deleted (1 if should delete, 0 if shouldn't delete)
-  
-  for (int i = 0; i < nlocal; i++) {
-    if (atom->type[i] == deadtype)
-      dlist[i] = 1;
-    else
-      dlist[i] = 0;
-  }
-
-  int i = 0;
-
-  while (i < nlocal) {  // proceed to delete dead atoms from simulation
-    if (dlist[i]) {
-      atom->avec->copy(nlocal - 1, i, 1);
-      dlist[i] = dlist[nlocal - 1];
-      nlocal--;
-    } else
-      i++;
-  }
-  
-  atom->nlocal = nlocal;
-
-  // reset atom->natoms and also topology counts
-  
-  bigint nblocal = atom->nlocal;
-  MPI_Allreduce(&nblocal, &atom->natoms, 1, MPI_LMP_BIGINT, MPI_SUM, world);
-  
-  // reset atom->map if it exists
-  // set nghost to 0 so old ghosts of deleted atoms won't be mapped
-  
-  if (atom->map_style != Atom::MAP_NONE) {
-    atom->nghost = 0;
-    atom->map_init();
-    atom->map_set();
-  }
-  
-  
-  bigint ndelete = natoms_previous - atom->natoms;
-
-
-  if (ndelete > 0)   // force a reneighbor if there are deleted atoms anywhere
-    next_reneighbor = update->ntimestep;
-  
-}
 
 /* ----------------------------------------------------------------------
    Create a set of new daughter atoms from the list of parent atoms,
@@ -409,94 +380,60 @@ void FixPopulationBase::create_new_atoms(const std::vector<int> &new_atoms)
   return;
 }
 
-
-/* ---------------------------------------------------------------------- */
-/* For atom i which is alivetype try and divide by converting a
-   (local) deadtype atom into one of its daughters.  */
-/* ---------------------------------------------------------------------- */
-
-bool FixPopulationBase::recycle_from_dead(int i) {
-  
-  bool recycled = false;
-
-  for (int j = 0;  j < atom->nlocal; j++) {
-    
-    
-    if (atom->type[j] == deadtype) {
-      divide(i,j);
-      recycled = true;
-      break;
-    }
-
-  }
-
-  return recycled;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Store atoms which are alive in alive_indices and count total
-   number of alive atoms and dead atoms across all processors. */
-/* ---------------------------------------------------------------------- */
-
-void FixPopulationBase::count_vitals()
-{
-  
-  localalive = 0;
-  localdead = 0;
-
-  for (int i = 0; i < atom->nlocal; i++) {
-    if (atom->mask[i] & groupbit) {
-      if (atom->type[i] == alivetype) {
-	alive_indices[localalive++] = i;
-      } else if (atom->type[i] == deadtype) {
-	dead_indices[localdead++] = i;
-      }
-    }
-  }
-
-
-  MPI_Allgather(&localalive,1,MPI_INT,&(nalive_per_proc[0]),1,MPI_INT,world);
-  MPI_Allgather(&localdead,1,MPI_INT,&(ndead_per_proc[0]),1,MPI_INT,world);
-  
-  
-  MPI_Allreduce(&localalive, &nalive, 1, MPI_INT, MPI_SUM, world);
-  MPI_Allreduce(&localdead, &ndead, 1, MPI_INT, MPI_SUM, world);
-
-  int sum = 0;
-
-  for (int i = 0; i < comm->nprocs; i++)
-    sum += nalive_per_proc[i];
-
-  if (sum != nalive)
-    printf("ERROR sum = %d but nalive = %d !!!!\n\n\n\n\n\n",sum,nalive);
-
-  sum = 0;
-
-  for (int i = 0; i < comm->nprocs; i++)
-    sum += ndead_per_proc[i];
-
-  if (sum != ndead)
-    printf("ERROR sum = %d but ndead = %d !!!!\n\n\n\n\n\n",sum,ndead);
-  
-
-  return;
-}
-
-
-
 /* ----------------------------------------------------------------------
-   birth and death rates for each atom
-------------------------------------------------------------------------- */
-
-double FixPopulationBase::compute_vector(int i)
+   Delete dead atoms from the simulation (forces a reneighbor if there
+   are any deadtype atoms so probably don't do this every timestep)
+---------------------------------------------------------------------- */
+void FixPopulationBase::delete_dead_atoms()
 {
 
-  count_vitals(); 
+  bigint natoms_previous = atom->natoms;
+  int nlocal = atom->nlocal;
 
-  if (i == 0) return nalive;
-  if (i == 1) return ndead;
 
-  return -1;
+  std::vector<int> dlist(nlocal);   // vector of atoms to be deleted (1 if should delete, 0 if shouldn't delete)
+  
+  for (int i = 0; i < nlocal; i++) {
+    if (atom->type[i] == deadtype)
+      dlist[i] = 1;
+    else
+      dlist[i] = 0;
+  }
+
+  int i = 0;
+
+  while (i < nlocal) {  // proceed to delete dead atoms from simulation
+    if (dlist[i]) {
+      atom->avec->copy(nlocal - 1, i, 1);
+      dlist[i] = dlist[nlocal - 1];
+      nlocal--;
+    } else
+      i++;
+  }
+  
+  atom->nlocal = nlocal;
+
+  // reset atom->natoms and also topology counts
+  
+  bigint nblocal = atom->nlocal;
+  MPI_Allreduce(&nblocal, &atom->natoms, 1, MPI_LMP_BIGINT, MPI_SUM, world);
+  
+  // reset atom->map if it exists
+  // set nghost to 0 so old ghosts of deleted atoms won't be mapped
+  
+  if (atom->map_style != Atom::MAP_NONE) {
+    atom->nghost = 0;
+    atom->map_init();
+    atom->map_set();
+  }
+  
+  
+  bigint ndelete = natoms_previous - atom->natoms;
+
+
+  if (ndelete > 0)   // force a reneighbor if there are deleted atoms anywhere
+    next_reneighbor = update->ntimestep;
+  
 }
 
 /* ---------------------------------------------------------------------- 
@@ -555,3 +492,62 @@ void FixPopulationBase::divide(int i, int j)
 }
 
 
+/* ----------------------------------------------------------------------
+   birth and death rates for each atom
+------------------------------------------------------------------------- */
+
+double FixPopulationBase::compute_vector(int i)
+{
+
+  count_vitals(); 
+
+  if (i == 0) return nalive;
+  if (i == 1) return ndead;
+
+  return -1;
+}
+
+
+
+/* ----------------------------------------------------------------------
+   Pack atom->type (since this
+   fix may change alivetype atoms to deadtype atoms and vice versa)
+---------------------------------------------------------------------- */
+
+int FixPopulationBase::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
+{
+  int i, j, m;
+
+  tagint *tag = atom->tag;
+  int *type = atom->type;
+
+  m = 0;
+
+  for (i = 0; i < n; i++) {
+    j = list[i];
+    buf[m++] = ubuf(type[j]).d;
+  }
+
+  return m;
+}
+
+
+
+/* ----------------------------------------------------------------------
+   Unpack atom->type
+---------------------------------------------------------------------- */
+void FixPopulationBase::unpack_forward_comm(int n, int first, double *buf)
+{
+  int i, m, last;
+
+  tagint *tag = atom->tag;
+  int *type = atom->type;
+
+  m = 0;
+  last = first + n;
+
+  for (i = first; i < last; i++) {
+    type[i] = (int) ubuf(buf[m++]).i; 
+  }
+
+}
