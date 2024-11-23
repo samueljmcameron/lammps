@@ -51,7 +51,7 @@ FixPopulationBase::FixPopulationBase(LAMMPS *lmp, int narg, char **arg) :
 
 
   vector_flag = 1;   // fix calculates a vector having global nalive and ndead in it
-  size_vector = 2;
+  size_vector = 5;
   global_freq = 1;
   extvector = 0;
   
@@ -146,6 +146,8 @@ int FixPopulationBase::setmask()
 
 void FixPopulationBase::init()
 {
+  count_vitals(); 
+
 }
 
 
@@ -199,6 +201,9 @@ void FixPopulationBase::post_integrate()
 
 
   int any_dividing_atoms_flag = 0;
+  int number_of_new_atoms = 0;
+  int number_of_recycled_atoms = 0;
+  int number_of_dieing_atoms = 0;
   // update divdeath_array
   compute_division_and_death_rates();
 
@@ -213,26 +218,36 @@ void FixPopulationBase::post_integrate()
     if (ran  <= divdeath_array[i][0]*dt) { // if true then division event will occur
 
       any_dividing_atoms_flag = 1;
-      
+
       // recycle local dead atom into an alive atom if possible
       bool recycled = recycle_from_dead(i);
 
       if (! recycled) { // alive atom must be created from scratch 
 	dividing_from_scratch_atoms.push_back(i);
-      }
+	number_of_new_atoms += 1;
+      } else number_of_recycled_atoms += 1;
       
     } else if (ran <= (divdeath_array[i][0] + divdeath_array[i][1])*dt) { // if true then death event occurs
-      
+      number_of_dieing_atoms += 1;      
       atom->type[i] = deadtype;
       
     }
     
   }
 
+  MPI_Allreduce(&number_of_new_atoms,&total_atoms_from_scratch,1, MPI_INT, MPI_SUM, world);
+  MPI_Allreduce(&number_of_recycled_atoms,&total_atoms_recycled,1, MPI_INT, MPI_SUM, world);
+  MPI_Allreduce(&number_of_dieing_atoms,&total_atoms_killed,1, MPI_INT, MPI_SUM, world);
+
+  
+  nalive += total_atoms_from_scratch+total_atoms_recycled-total_atoms_killed;
+
   create_new_atoms(dividing_from_scratch_atoms);
   
   if (update->ntimestep % cleanevery == 0) // delete dead atoms if necessary
     delete_dead_atoms();
+  else
+    ndead += total_atoms_killed-total_atoms_recycled;
 
   int divisions_occured;      
   MPI_Allreduce(&any_dividing_atoms_flag, &divisions_occured, 1, MPI_INT, MPI_SUM, world);
@@ -433,6 +448,8 @@ void FixPopulationBase::delete_dead_atoms()
 
   if (ndelete > 0)   // force a reneighbor if there are deleted atoms anywhere
     next_reneighbor = update->ntimestep;
+
+  ndead = 0;
   
 }
 
@@ -499,10 +516,14 @@ void FixPopulationBase::divide(int i, int j)
 double FixPopulationBase::compute_vector(int i)
 {
 
-  count_vitals(); 
+  //if (count_vitals_flag)
+  //  count_vitals(); 
 
   if (i == 0) return nalive;
-  if (i == 1) return ndead;
+  else if (i == 1) return ndead;
+  else if (i == 2) return total_atoms_from_scratch;
+  else if (i == 3) return total_atoms_recycled;
+  else if (i == 4) return total_atoms_killed;
 
   return -1;
 }
