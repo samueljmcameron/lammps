@@ -61,8 +61,8 @@ protected:
   double shift; // the total displacement distance between daughter atoms after a division
   double **divdeath_array; // rates of division (first column) and death (second column)
 
-  int total_atoms_from_scratch, total_atoms_recycled, total_atoms_killed;
-  
+  int total_atoms_from_scratch, total_atoms_recycled, total_atoms_killed, total_atoms_deleted;
+
 };
 
 }    // namespace LAMMPS_NS

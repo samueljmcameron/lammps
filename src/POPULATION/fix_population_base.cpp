@@ -51,7 +51,7 @@ FixPopulationBase::FixPopulationBase(LAMMPS *lmp, int narg, char **arg) :
 
 
   vector_flag = 1;   // fix calculates a vector having global nalive and ndead in it
-  size_vector = 5;
+  size_vector = 6;
   global_freq = 1;
   extvector = 0;
   
@@ -205,6 +205,8 @@ void FixPopulationBase::post_integrate()
   int number_of_recycled_atoms = 0;
   int number_of_dieing_atoms = 0;
   // update divdeath_array
+
+
   compute_division_and_death_rates();
 
 
@@ -235,26 +237,36 @@ void FixPopulationBase::post_integrate()
     
   }
 
-  MPI_Allreduce(&number_of_new_atoms,&total_atoms_from_scratch,1, MPI_INT, MPI_SUM, world);
   MPI_Allreduce(&number_of_recycled_atoms,&total_atoms_recycled,1, MPI_INT, MPI_SUM, world);
   MPI_Allreduce(&number_of_dieing_atoms,&total_atoms_killed,1, MPI_INT, MPI_SUM, world);
 
-  
+  create_new_atoms(dividing_from_scratch_atoms); // computes total_atoms_from_scratch
+
   nalive += total_atoms_from_scratch+total_atoms_recycled-total_atoms_killed;
 
-  create_new_atoms(dividing_from_scratch_atoms);
-  
-  if (update->ntimestep % cleanevery == 0) // delete dead atoms if necessary
-    delete_dead_atoms();
-  else
+  total_atoms_deleted = 0;  
+  if (update->ntimestep % cleanevery == 0) {// delete dead atoms if necessary
+    delete_dead_atoms(); // computes total_atoms_deleted;
+    ndead = 0;
+  } else
     ndead += total_atoms_killed-total_atoms_recycled;
 
-  int divisions_occured;      
-  MPI_Allreduce(&any_dividing_atoms_flag, &divisions_occured, 1, MPI_INT, MPI_SUM, world);
 
-  if (! divisions_occured)
+  if (total_atoms_from_scratch > 0 || total_atoms_deleted > 0 || total_atoms_recycled > 0) {
+    // an atom has either been created, deleted, or moved an arbitrary amount
+    //  (within a processor), respectively, meaning a reneighboring must be done.
+
+    next_reneighbor = update->ntimestep;
+
+    if (atom->map_style != Atom::MAP_NONE && (total_atoms_from_scratch > 0 || total_atoms_deleted > 0)) {
+      atom->nghost = 0;
+      atom->map_init();
+      atom->map_set();
+    }
+  } else { // if either atoms are labelled dead but not deleted, or nothing at all has happened.
     comm->forward_comm(this);
-  
+  }
+
 }
 
 
@@ -334,8 +346,8 @@ bool FixPopulationBase::recycle_from_dead(int i) {
 
 
 /* ----------------------------------------------------------------------
-   Create a set of new daughter atoms from the list of parent atoms,
-   and shift the daughter and parent atoms accordingly.
+   Create a set of new daughter atoms from the list of parent atoms.
+   Also, tally up the total_atoms_from_scratch.
 ---------------------------------------------------------------------- */
 void FixPopulationBase::create_new_atoms(const std::vector<int> &new_atoms)
 {
@@ -365,39 +377,33 @@ void FixPopulationBase::create_new_atoms(const std::vector<int> &new_atoms)
 
 
   
-  int reneigh =  new_atoms.size();
-  int globalreneigh;
-  MPI_Allreduce(&reneigh, &globalreneigh, 1, MPI_INT, MPI_SUM, world);
-  if (globalreneigh > 0) {
-    next_reneighbor = update->ntimestep;
+  bigint newlocal = atom->nlocal;
+  bigint natoms_previous = atom->natoms;
   
+  MPI_Allreduce(&newlocal, &atom->natoms, 1, MPI_INT, MPI_SUM, world);
+  
+  total_atoms_from_scratch = atom->natoms - natoms_previous;
 
-    bigint newlocal = atom->nlocal;
-    MPI_Allreduce(&newlocal, &atom->natoms, 1, MPI_LMP_BIGINT, MPI_SUM, world);
-    if (atom->natoms < 0 || atom->natoms >= MAXBIGINT)
-      error->all(FLERR, "Too many total atoms");
+  if (atom->natoms < 0 || atom->natoms >= MAXBIGINT)
+    error->all(FLERR, "Too many total atoms");
+
+  if (total_atoms_from_scratch > 0) {
     
     // add IDs for newly created atoms
     // check that atom IDs are valid
     
     if (atom->tag_enable) atom->tag_extend();
     atom->tag_check();
-    
-    // if global map exists, reset it
-    // invoke map_init() b/c atom count has grown
-    
-    if (atom->map_style != Atom::MAP_NONE) {
-      atom->map_init();
-      atom->map_set();
-    }
+
   }
 
   return;
+
 }
 
 /* ----------------------------------------------------------------------
-   Delete dead atoms from the simulation (forces a reneighbor if there
-   are any deadtype atoms so probably don't do this every timestep)
+   Delete dead atoms from the simulation. Also, tally up the
+   total_atoms_deleted.
 ---------------------------------------------------------------------- */
 void FixPopulationBase::delete_dead_atoms()
 {
@@ -425,31 +431,13 @@ void FixPopulationBase::delete_dead_atoms()
     } else
       i++;
   }
-  
   atom->nlocal = nlocal;
-
-  // reset atom->natoms and also topology counts
-  
   bigint nblocal = atom->nlocal;
+
   MPI_Allreduce(&nblocal, &atom->natoms, 1, MPI_LMP_BIGINT, MPI_SUM, world);
-  
-  // reset atom->map if it exists
-  // set nghost to 0 so old ghosts of deleted atoms won't be mapped
-  
-  if (atom->map_style != Atom::MAP_NONE) {
-    atom->nghost = 0;
-    atom->map_init();
-    atom->map_set();
-  }
-  
-  
-  bigint ndelete = natoms_previous - atom->natoms;
+  total_atoms_deleted = natoms_previous - atom->natoms;
 
-
-  if (ndelete > 0)   // force a reneighbor if there are deleted atoms anywhere
-    next_reneighbor = update->ntimestep;
-
-  ndead = 0;
+  return;
   
 }
 
@@ -522,8 +510,10 @@ double FixPopulationBase::compute_vector(int i)
   if (i == 0) return nalive;
   else if (i == 1) return ndead;
   else if (i == 2) return total_atoms_from_scratch;
-  else if (i == 3) return total_atoms_recycled;
-  else if (i == 4) return total_atoms_killed;
+  else if (i == 3) return total_atoms_deleted;
+  else if (i == 4) return total_atoms_recycled;
+  else if (i == 5) return total_atoms_killed;
+
 
   return -1;
 }
