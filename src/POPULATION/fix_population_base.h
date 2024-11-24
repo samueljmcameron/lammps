@@ -41,8 +41,10 @@ class FixPopulationBase : public Fix {
   virtual void compute_division_and_death_rates() = 0;
   virtual void divide(int,int);
 
-  
+  int delete_flag;
+  int recycle_flag;
 protected:
+  enum {NEVER, EVERY, EFFICIENT};
   class RanMars *rng; // used to decide for each atom whether it divides, dies, or does neither
   int alivetype,deadtype; // alivetype == type of atom which we consider alive (similar for deadtype)
   int seed; // rng seed

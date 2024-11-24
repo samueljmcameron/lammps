@@ -58,6 +58,8 @@ FixPopulationBase::FixPopulationBase(LAMMPS *lmp, int narg, char **arg) :
   peratom_flag = 1; // fix calculates a peratom array having division and death rates
   size_peratom_cols = 2;
   peratom_freq = 1;
+
+  cleanevery = 0;
   
   nspecified_args = 3;
   alivetype = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
@@ -72,12 +74,41 @@ FixPopulationBase::FixPopulationBase(LAMMPS *lmp, int narg, char **arg) :
 
   if (seed <= 0)
     error->all(FLERR, "Seed must be positive in fix population command");
-
-
-
   
-  cleanevery = utils::inumeric(FLERR, arg[nspecified_args++], false, lmp);
+  if (strcmp(arg[nspecified_args], "delete") == 0) {
+    nspecified_args += 1;
+    if (strcmp(arg[nspecified_args], "efficient") == 0) {
+      delete_flag = EFFICIENT;
+    } else if (strcmp(arg[nspecified_args], "every") == 0) {
+      delete_flag = EVERY;
+      nspecified_args += 1;
+      cleanevery = utils::inumeric(FLERR, arg[nspecified_args], false, lmp);
+    } else if (strcmp(arg[nspecified_args], "never") == 0) {
+      delete_flag = NEVER;
+    } else
+      error->all(FLERR, "delete argument must be either efficient, every, or never in "
+		 "fix population command");
 
+    nspecified_args += 1;
+  } else delete_flag = EFFICIENT;
+
+  if (strcmp(arg[nspecified_args], "recycle") == 0) {
+    nspecified_args += 1;
+    if (strcmp(arg[nspecified_args], "yes") == 0) {
+      recycle_flag = 1;
+    } else if (strcmp(arg[nspecified_args], "no") == 0) {
+      recycle_flag = 0;
+    } else
+      error->all(FLERR, "recycle argument must be either yes or no in "
+		 "fix population command");
+    nspecified_args += 1;
+  } else recycle_flag = 0;
+
+  if (delete_flag == NEVER && !recycle_flag) {
+    error->warning(FLERR, "Never deleting and never recycling atoms in fix population command "
+		   "will lead to unbounded accumulation of dead atoms.");
+  }
+  
   rng = new RanMars(lmp, seed + comm->me*100);
 
 
@@ -200,8 +231,7 @@ void FixPopulationBase::post_integrate()
   std::vector<int> dividing_from_scratch_atoms; 
 
 
-  int any_dividing_atoms_flag = 0;
-  int number_of_new_atoms = 0;
+
   int number_of_recycled_atoms = 0;
   int number_of_dieing_atoms = 0;
   // update divdeath_array
@@ -219,15 +249,16 @@ void FixPopulationBase::post_integrate()
     
     if (ran  <= divdeath_array[i][0]*dt) { // if true then division event will occur
 
-      any_dividing_atoms_flag = 1;
+      if (recycle_flag) {
+	// recycle local dead atom into an alive atom if possible
+	bool recycled = recycle_from_dead(i);
 
-      // recycle local dead atom into an alive atom if possible
-      bool recycled = recycle_from_dead(i);
-
-      if (! recycled) { // alive atom must be created from scratch 
-	dividing_from_scratch_atoms.push_back(i);
-	number_of_new_atoms += 1;
-      } else number_of_recycled_atoms += 1;
+	if (! recycled) { // alive atom must be created from scratch 
+	  dividing_from_scratch_atoms.push_back(i);
+	  
+	} else number_of_recycled_atoms += 1;
+      } else dividing_from_scratch_atoms.push_back(i);
+      
       
     } else if (ran <= (divdeath_array[i][0] + divdeath_array[i][1])*dt) { // if true then death event occurs
       number_of_dieing_atoms += 1;      
@@ -237,21 +268,27 @@ void FixPopulationBase::post_integrate()
     
   }
 
+
+  // sum over processors for events that don't necessarily create/delete atoms
+
   MPI_Allreduce(&number_of_recycled_atoms,&total_atoms_recycled,1, MPI_INT, MPI_SUM, world);
   MPI_Allreduce(&number_of_dieing_atoms,&total_atoms_killed,1, MPI_INT, MPI_SUM, world);
 
-  create_new_atoms(dividing_from_scratch_atoms); // computes total_atoms_from_scratch
 
+  // now move on to events that create/delete atoms
+  
+  create_new_atoms(dividing_from_scratch_atoms); 
   nalive += total_atoms_from_scratch+total_atoms_recycled-total_atoms_killed;
 
-  total_atoms_deleted = 0;  
-  if (update->ntimestep % cleanevery == 0) {// delete dead atoms if necessary
+  total_atoms_deleted = 0;
+  if ((delete_flag == EFFICIENT && total_atoms_from_scratch > 0) ||
+      (delete_flag == EVERY && update->ntimestep % cleanevery == 0)) {
     delete_dead_atoms(); // computes total_atoms_deleted;
     ndead = 0;
-  } else
+  } else // if atoms aren't deleted 
     ndead += total_atoms_killed-total_atoms_recycled;
 
-
+  
   if (total_atoms_from_scratch > 0 || total_atoms_deleted > 0 || total_atoms_recycled > 0) {
     // an atom has either been created, deleted, or moved an arbitrary amount
     //  (within a processor), respectively, meaning a reneighboring must be done.
@@ -263,9 +300,8 @@ void FixPopulationBase::post_integrate()
       atom->map_init();
       atom->map_set();
     }
-  } else { // if either atoms are labelled dead but not deleted, or nothing at all has happened.
+  } else  // if either atoms are labelled dead but not deleted, or nothing at all has happened.
     comm->forward_comm(this);
-  }
 
 }
 
