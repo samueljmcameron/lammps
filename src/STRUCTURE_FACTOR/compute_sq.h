@@ -36,7 +36,7 @@ class ComputeSQ : public Compute {
   int nbin;                // # of sq bins
   int cutflag;             // user cutoff flag
   int npairs;              // # of sq pairs
-  double delr, delrinv;    // bin width and its inverse
+  double *delta_q;    // bin width and its inverse
   double cutoff_user;      // user-specified cutoff
   double mycutneigh;       // user-specified cutoff + neighbor skin
   int ***sqpair;          // map 2 type pair to sq pair for each histo
@@ -44,12 +44,12 @@ class ComputeSQ : public Compute {
   int *ilo, *ihi, *jlo, *jhi;
   double **hist;       // histogram bins
   double **histall;    // summed histogram bins across all procs
-  int *ibins;
 
   int *typecount;
   int *icount, *jcount;
   int *duplicates;
-  double delta_q;
+
+  static void callback(int, char *, void *);
 
   class NeighList *list;    // half neighbor list
   void init_norm();

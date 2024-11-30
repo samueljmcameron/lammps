@@ -83,8 +83,13 @@ ComputeSQ::ComputeSQ(LAMMPS *lmp, int narg, char **arg) :
     npairs = nargpair/2;
   }
 
-  size_array_rows = nbin;
-  size_array_cols = 1 + 2*npairs;
+  size_array_rows = 1;
+  for (int idim = 0; idim < domain->dimension-1; idim ++ ) size_array_rows *= nbin;
+
+  size_array_rows *= (nbin/2+1);
+
+  
+  size_array_cols = 3 + 2*npairs;
 
   int ntypes = atom->ntypes;
   memory->create(sqpair,npairs,ntypes+1,ntypes+1,"sq:sqpair");
@@ -122,14 +127,15 @@ ComputeSQ::ComputeSQ(LAMMPS *lmp, int narg, char **arg) :
       }
 
   
-  memory->create(hist,2*npairs,nbin,"sq:hist");
-  memory->create(histall,2*npairs,nbin,"sq:histall");
-  memory->create(array,nbin,1+2*npairs,"sq:array");
+  
+  memory->create(hist,2*npairs,size_array_rows,"sq:hist");
+  memory->create(histall,2*npairs,size_array_rows,"sq:histall");
+  memory->create(array,size_array_rows,1+2*npairs,"sq:array");
   typecount = new int[ntypes+1];
   icount = new int[npairs];
   jcount = new int[npairs];
   duplicates = new int[npairs];
-  ibins = new int[nbin*(nbin-1)];
+  delta_q = new double[domain->dimension];
 
   dynamic = 0;
   natoms_old = 0;
@@ -152,7 +158,7 @@ ComputeSQ::~ComputeSQ()
   delete [] icount;
   delete [] jcount;
   delete [] duplicates;
-  delete [] ibins;
+  delete [] delta_q;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -160,53 +166,44 @@ ComputeSQ::~ComputeSQ()
 void ComputeSQ::init()
 {
 
-  if (!force->pair && !cutflag)
-    error->all(FLERR,"Compute sq requires a pair style be defined "
-               "or cutoff specified");
-
-  if (cutflag) {
-    double skin = neighbor->skin;
-    mycutneigh = cutoff_user + skin;
-
-    double cutghost;            // as computed by Neighbor and Comm
-    if (force->pair)
-      cutghost = MAX(force->pair->cutforce+skin,comm->cutghostuser);
-    else
-      cutghost = comm->cutghostuser;
-
-    if (mycutneigh > cutghost)
-      error->all(FLERR,"Compute sq cutoff exceeds ghost atom range - "
-                 "use comm_modify cutoff command");
-    if (force->pair && mycutneigh < force->pair->cutforce + skin)
-      if (comm->me == 0)
-        error->warning(FLERR,"Compute sq cutoff less than neighbor cutoff - "
-                       "forcing a needless neighbor list build");
-
-    delr = cutoff_user / nbin;
-  } else delr = force->pair->cutforce / nbin;
-
-  delrinv = 1.0/delr;
 
   // set 1st column of output array to bin coords
 
-  double min_L = domain->xprd;
-  min_L =  min_L > domain->yprd ? domain->yprd : min_L;
-  if (domain->dimension != 2)
-    min_L =  min_L > domain->zprd ? domain->zprd : min_L;
+  
 
-  delta_q = 2*M_PI/min_L;
-
-  // only count first quadrant excluding the x = 0 line
-  // the q = 0 point is uninteresting at is a delta function
-  for (int nx = 0; nx < nbin; nx++) 
-    for (int ny = 1; ny < nbin; ny++)
-      ibins[nx+nbin*(ny-1)] = static_cast<int>(sqrt(nx*nx + ny*ny)/sqrt(2)-0.5);
+  for (int idim = 0; idim < domain->dimension; idim ++ )
+    delta_q[idim] = 2*M_PI/domain->prd[idim];
+    
 
     
-  
-  for (int i = 0; i < nbin; i++)
-    array[i][0] = (i+1) * delta_q*sqrt(2);
 
+  double qx,qy;
+  if (domain->dimension == 2)
+    for (int i = 0; i < nbin; i++) {
+      qx = (i-nbin/2) * delta_q[0];
+      for (int j = 0; i < nbin/2+1; i++) {
+	array[j + (nbin/2+1)*i][0] = qx;
+	array[j + (nbin/2+1)*i][1] = j*delta_q[1];
+      }
+    }
+  
+  else
+    
+    for (int i = 0; i < nbin; i++) {
+      qx = (i-nbin/2) * delta_q[0];
+      for (int j = 0; i < nbin; i++) {
+	qy = (j-nbin/2) * delta_q[1];
+	for (int k = 0; k < nbin/2+1; k++) {
+	  array[k + (nbin/2+1)*(j+nbin*i)][0] = qx;
+	  array[k + (nbin/2+1)*(j+nbin*i)][1] = qy;
+	  array[k + (nbin/2+1)*(j+nbin*i)][2] = k*delta_q[2];
+	  
+	}
+      }
+    }
+
+
+  
   // initialize normalization, finite size correction, and changing atom counts
 
   natoms_old = atom->natoms;
@@ -214,16 +211,6 @@ void ComputeSQ::init()
   if (dynamic_user) dynamic = 1;
   init_norm();
 
-  // need an occasional half neighbor list
-  // if user specified, request a cutoff = cutoff_user + skin
-  // skin is included b/c Neighbor uses this value similar
-  //   to its cutneighmax = force cutoff + skin
-  // also, this NeighList may be used by this compute for multiple steps
-  //   (until next reneighbor), so it needs to contain atoms further
-  //   than cutoff_user apart, just like a normal neighbor list does
-
-  auto req = neighbor->add_request(this, NeighConst::REQ_OCCASIONAL);
-  if (cutflag) req->set_cutoff(mycutneigh);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -279,10 +266,10 @@ void ComputeSQ::init_norm()
 
 void ComputeSQ::compute_array()
 {
-  int i,j,m,ii,jj,inum,jnum,itype,jtype,ipair,jpair,ihisto,ibin;
-  double xtmp,ytmp,ztmp,delx,dely,delz,r,qx,qy,Stmp_real;
-  int *ilist,*jlist,*numneigh,**firstneigh;
-  double factor_lj,factor_coul;
+
+  int *mask = atom->mask;
+  int *type = atom->type;
+  double **x = atom->x;
 
   if (natoms_old != atom->natoms) {
     dynamic = 1;
@@ -297,105 +284,108 @@ void ComputeSQ::compute_array()
 
   invoked_array = update->ntimestep;
 
-  // invoke half neighbor list (will copy or build if necessary)
 
-  neighbor->build_one(list);
-
-  inum = list->inum;
-  ilist = list->ilist;
-  numneigh = list->numneigh;
-  firstneigh = list->firstneigh;
-
-  // zero the histogram counts
-
-  for (i = 0; i < 2*npairs; i++)
-    for (j = 0; j < nbin; j++)
+  for (int i = 0; i < 2*npairs; i++)
+    for (int j = 0; j < size_array_rows; j++)
       hist[i][j] = 0;
 
-  // tally the SQ
-  // both atom i and j must be in fix group
-  // itype,jtype must have been specified by user
-  // consider I,J as one interaction even if neighbor pair is stored on 2 procs
-  // tally I,J pair each time I is central atom, and each time J is central
 
-  double **x = atom->x;
-  int *type = atom->type;
-  int *mask = atom->mask;
-  int nlocal = atom->nlocal;
+  double *list;  // list has entries for x,y,z,mask, and type
+  memory->create(list,atom->nlocal*5,"sq:list");
+  
+  // need to store
+  int n = 0;
+  for (int i = 0; i < atom->nlocal; i++) {
+    list[n++] = ubuf(mask[i]).d;
+    list[n++] = ubuf(type[i]).d;
+    list[n++] = x[i][0];
+    list[n++] = x[i][1];
+    list[n++] = x[i][2];
 
-  double *special_coul = force->special_coul;
-  double *special_lj = force->special_lj;
-  int newton_pair = force->newton_pair;
+  }
 
-  for (ii = 0; ii < inum; ii++) {
-    i = ilist[ii];
+
+  comm->ring(n,sizeof(double),list,1,callback,nullptr,(void *) this);
+
+
+  memory->destroy(list);
+
+
+  MPI_Allreduce(hist[0],histall[0],2*npairs*size_array_rows,MPI_DOUBLE,MPI_SUM,world);
+
+  int m;
+  for (m = 0; m < npairs; m++) {
+    for (int ibin = 0; ibin < size_array_rows; ibin++) {
+      array[ibin][1+2*m] = hist[2*m][ibin];
+      array[ibin][2+2*m] = hist[2*m+1][ibin];
+    }
+  }
+
+  
+
+}
+
+
+void ComputeSQ::callback(int n, char *cbuf, void *ptr)
+{
+  auto sqptr = (ComputeSQ *) ptr;
+  auto list = (double *) cbuf;
+
+  int groupbit = sqptr->groupbit;
+  int nlocal = sqptr->atom->nlocal;
+  
+  double ** hist = sqptr->hist;
+  double **x = sqptr->atom->x;
+  int *mask = sqptr->atom->mask;
+  int *type = sqptr->atom->type;
+  int ***sqpair = sqptr->sqpair;
+  int **nsqpair = sqptr->nsqpair;
+  int nbin = sqptr->nbin;
+  double *delta_q = sqptr->delta_q;
+
+  double xtmp,ytmp,ztmp,fac,delx,dely,delz;
+  int itype,jtype,ipair,jpair;
+
+
+  for (int i = 0; i < nlocal; i++) {
     if (!(mask[i] & groupbit)) continue;
+    itype = type[i];
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
-    itype = type[i];
-    jlist = firstneigh[i];
-    jnum = numneigh[i];
 
-    for (jj = 0; jj < jnum; jj++) {
-      j = jlist[jj];
-      factor_lj = special_lj[sbmask(j)];
-      factor_coul = special_coul[sbmask(j)];
-      j &= NEIGHMASK;
+    
+    int j = 0;
+    while (j < n) {
+      if (!((int) ubuf(list[j++]).i & groupbit)) {
+	j += 4;
+	continue;
+      }
+      jtype = (int) ubuf(list[j++]).i;
 
-      // if both weighting factors are 0, skip this pair
-      // could be 0 and still be in neigh list for long-range Coulombics
-      // want consistency with non-charged pairs which wouldn't be in list
-
-      if (factor_lj == 0.0 && factor_coul == 0.0) continue;
-
-      if (!(mask[j] & groupbit)) continue;
-      jtype = type[j];
       ipair = nsqpair[itype][jtype];
       jpair = nsqpair[jtype][itype];
-      if (!ipair && !jpair) continue;
+      if (!ipair && !jpair) {
+	j += 3;
+	continue;
+      }
+      
+      delx = xtmp - list[j++];
+      dely = ytmp - list[j++];
+      delz = ztmp - list[j++];
 
-      delx = xtmp - x[j][0];
-      dely = ytmp - x[j][1];
-      delz = ztmp - x[j][2];
-
-      for (int nx = 0; nx < nbin; nx ++ ) {
-	qx = delta_q*nx;
-	for (int ny = 1; ny < nbin; ny ++ ) {
-
-	  ibin = ibins[nx + nbin*(ny-1)];
-	  if (ibin > nbin) continue;
-	  qy = delta_q*ny;
-
-	  Stmp_real = 2*(cos(qx*delx+qy*dely) + cos(qy*delx - qx*dely));
-	  //Stmp_imag = sin(qx*delx+qy*dely);
-	  
-	  for (ihisto = 0; ihisto < ipair; ihisto++) {
-	    m = sqpair[ihisto][itype][jtype];
-	    hist[m][ibin] += 1.0;
-	    hist[m+npairs][ibin] += Stmp_real;
-	  }
-	  if (newton_pair || j < nlocal) {
-	    for (ihisto = 0; ihisto < jpair; ihisto++) {
-	      m = sqpair[ihisto][jtype][itype];
-	      hist[m][ibin] += 1.0;
-	      hist[m+npairs][ibin] += Stmp_real;
+      int ibin,m;
+      for (int nx = -nbin/2; nx < nbin/2; nx++ )
+	for (int ny = -nbin/2; ny < nbin/2; ny++ )
+	  for (int nz = 0; nz < nbin/2+1; nz++ ) {
+	    fac = delta_q[0]*nx*delx + delta_q[1]*ny*dely + delta_q[2]*nz*delz;
+	    ibin = nz  + (nbin/2+1)*((ny+nbin/2) + nbin*(nx+nbin/2));
+	    for (int ihisto = 0; ihisto < ipair; ihisto++) {
+	      m = sqpair[ihisto][itype][jtype];
+	      hist[2*m][ibin] += cos(fac);
+	      hist[2*m+1][ibin] += sin(fac);
 	    }
 	  }
-	}
-      }
     }
   }
-
-  // sum histograms across procs
-
-  MPI_Allreduce(hist[0],histall[0],npairs*nbin,MPI_DOUBLE,MPI_SUM,world);
-
-  for (m = 0; m < npairs; m++) {
-    for (ibin = 0; ibin < nbin; ibin++) {
-      array[ibin][1+2*m] = hist[m][ibin];
-      array[ibin][2+2*m] = hist[m+npairs][ibin];
-    }
-  }
-
 }
