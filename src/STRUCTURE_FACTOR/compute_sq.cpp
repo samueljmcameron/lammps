@@ -89,7 +89,7 @@ ComputeSQ::ComputeSQ(LAMMPS *lmp, int narg, char **arg) :
   size_array_rows *= (nbin/2+1);
 
   
-  size_array_cols = 3 + 2*npairs;
+  size_array_cols = domain->dimension + 2*npairs;
 
   int ntypes = atom->ntypes;
   memory->create(sqpair,npairs,ntypes+1,ntypes+1,"sq:sqpair");
@@ -130,7 +130,7 @@ ComputeSQ::ComputeSQ(LAMMPS *lmp, int narg, char **arg) :
   
   memory->create(hist,2*npairs,size_array_rows,"sq:hist");
   memory->create(histall,2*npairs,size_array_rows,"sq:histall");
-  memory->create(array,size_array_rows,1+2*npairs,"sq:array");
+  memory->create(array,size_array_rows,size_array_cols,"sq:array");
   typecount = new int[ntypes+1];
   icount = new int[npairs];
   jcount = new int[npairs];
@@ -175,13 +175,11 @@ void ComputeSQ::init()
     delta_q[idim] = 2*M_PI/domain->prd[idim];
     
 
-    
-
   double qx,qy;
   if (domain->dimension == 2)
     for (int i = 0; i < nbin; i++) {
       qx = (i-nbin/2) * delta_q[0];
-      for (int j = 0; i < nbin/2+1; i++) {
+      for (int j = 0; j < nbin/2+1; j++) {
 	array[j + (nbin/2+1)*i][0] = qx;
 	array[j + (nbin/2+1)*i][1] = j*delta_q[1];
       }
@@ -304,8 +302,10 @@ void ComputeSQ::compute_array()
 
   }
 
+    
 
   comm->ring(n,sizeof(double),list,1,callback,nullptr,(void *) this);
+
 
 
   memory->destroy(list);
@@ -313,13 +313,19 @@ void ComputeSQ::compute_array()
 
   MPI_Allreduce(hist[0],histall[0],2*npairs*size_array_rows,MPI_DOUBLE,MPI_SUM,world);
 
+
+  
+
   int m;
   for (m = 0; m < npairs; m++) {
     for (int ibin = 0; ibin < size_array_rows; ibin++) {
-      array[ibin][1+2*m] = hist[2*m][ibin];
-      array[ibin][2+2*m] = hist[2*m+1][ibin];
+      array[ibin][domain->dimension+2*m] = hist[2*m][ibin];
+      array[ibin][domain->dimension+1+2*m] = hist[2*m+1][ibin];
     }
   }
+
+
+
 
   
 
@@ -342,6 +348,10 @@ void ComputeSQ::callback(int n, char *cbuf, void *ptr)
   int **nsqpair = sqptr->nsqpair;
   int nbin = sqptr->nbin;
   double *delta_q = sqptr->delta_q;
+  int dimension = sqptr->domain->dimension;
+  bigint tstep = sqptr->update->ntimestep;
+  int npairs = sqptr->npairs;
+  int size_array_rows = sqptr->size_array_rows;
 
   double xtmp,ytmp,ztmp,fac,delx,dely,delz;
   int itype,jtype,ipair,jpair;
@@ -375,17 +385,38 @@ void ComputeSQ::callback(int n, char *cbuf, void *ptr)
       delz = ztmp - list[j++];
 
       int ibin,m;
-      for (int nx = -nbin/2; nx < nbin/2; nx++ )
-	for (int ny = -nbin/2; ny < nbin/2; ny++ )
-	  for (int nz = 0; nz < nbin/2+1; nz++ ) {
-	    fac = delta_q[0]*nx*delx + delta_q[1]*ny*dely + delta_q[2]*nz*delz;
-	    ibin = nz  + (nbin/2+1)*((ny+nbin/2) + nbin*(nx+nbin/2));
+      if (dimension == 2) {
+	for (int nx = -nbin/2; nx < nbin/2; nx++ )
+	  for (int ny = 0; ny < nbin/2+1; ny++ ) {
+	    fac = delta_q[0]*nx*delx + delta_q[1]*ny*dely;
+	    ibin = ny  + (nbin/2+1)*(nx+nbin/2);
 	    for (int ihisto = 0; ihisto < ipair; ihisto++) {
 	      m = sqpair[ihisto][itype][jtype];
 	      hist[2*m][ibin] += cos(fac);
 	      hist[2*m+1][ibin] += sin(fac);
 	    }
 	  }
+
+	
+	
+      } else {
+	for (int nx = -nbin/2; nx < nbin/2; nx++ )
+	  for (int ny = -nbin/2; ny < nbin/2; ny++ )
+	    for (int nz = 0; nz < nbin/2+1; nz++ ) {
+	      fac = delta_q[0]*nx*delx + delta_q[1]*ny*dely + delta_q[2]*nz*delz;
+	      ibin = nz  + (nbin/2+1)*((ny+nbin/2) + nbin*(nx+nbin/2));
+	      for (int ihisto = 0; ihisto < ipair; ihisto++) {
+		m = sqpair[ihisto][itype][jtype];
+		hist[2*m][ibin] += cos(fac);
+		hist[2*m+1][ibin] += sin(fac);
+	      }
+	    }
+      }
+      
+      
     }
+
+    
   }
+  
 }
