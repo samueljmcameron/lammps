@@ -24,9 +24,10 @@ class ComputeStructureFactorBase : public Compute {
   ComputeStructureFactorBase(class LAMMPS *, int, char **);
   ~ComputeStructureFactorBase() override;
   void init() override;
-  void compute_array() override;
   
  protected:
+  void compute_histogram();
+  
   virtual void write_qs() = 0;
   int nbin;                // # of sq bins
   int npairs;              // # of sq pairs

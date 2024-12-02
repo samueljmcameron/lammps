@@ -206,7 +206,7 @@ void ComputeStructureFactorBase::init_norm()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeStructureFactorBase::compute_array()
+void ComputeStructureFactorBase::compute_histogram()
 {
 
   int *mask = atom->mask;

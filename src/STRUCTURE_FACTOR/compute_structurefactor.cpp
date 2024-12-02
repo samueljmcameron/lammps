@@ -89,7 +89,8 @@ void ComputeStructureFactor::write_qs()
 
 void ComputeStructureFactor::compute_array()
 {
-  ComputeStructureFactorBase::compute_array();
+  compute_histogram();
+  
   int m;
   for (m = 0; m < npairs; m++) {
     for (int ibin = 0; ibin < size_array_rows; ibin++) {
