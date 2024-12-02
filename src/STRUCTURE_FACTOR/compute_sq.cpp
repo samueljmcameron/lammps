@@ -26,10 +26,6 @@
 #include "group.h"
 #include "math_const.h"
 #include "memory.h"
-#include "neigh_list.h"
-#include "neigh_request.h"
-#include "neighbor.h"
-#include "pair.h"
 #include "update.h"
 
 #include <cmath>
@@ -57,24 +53,7 @@ ComputeSQ::ComputeSQ(LAMMPS *lmp, int narg, char **arg) :
   // optional args
   // nargpair = # of pairwise args, starting at iarg = 4
 
-  cutflag = 0;
-
-  int iarg;
-  for (iarg = 4; iarg < narg; iarg++)
-    if (strcmp(arg[iarg],"cutoff") == 0) break;
-
-  int nargpair = iarg - 4;
-
-  while (iarg < narg) {
-    if (strcmp(arg[iarg],"cutoff") == 0) {
-      if (iarg+2 > narg) error->all(FLERR,"Illegal compute sq command");
-      cutoff_user = utils::numeric(FLERR,arg[iarg+1],false,lmp);
-      if (cutoff_user <= 0.0) cutflag = 0;
-      else cutflag = 1;
-      iarg += 2;
-    } else error->all(FLERR,"Illegal compute sq command");
-  }
-
+  int nargpair = narg - 4;
   // pairwise args
 
   if (nargpair == 0) npairs = 1;
@@ -103,7 +82,7 @@ ComputeSQ::ComputeSQ(LAMMPS *lmp, int narg, char **arg) :
     ilo[0] = 1; ihi[0] = ntypes;
     jlo[0] = 1; jhi[0] = ntypes;
   } else {
-    iarg = 4;
+    int iarg = 4;
     for (int ipair = 0; ipair < npairs; ipair++) {
       utils::bounds(FLERR,arg[iarg],1,atom->ntypes,ilo[ipair],ihi[ipair],error);
       utils::bounds(FLERR,arg[iarg+1],1,atom->ntypes,jlo[ipair],jhi[ipair],error);
@@ -173,7 +152,21 @@ void ComputeSQ::init()
 
   for (int idim = 0; idim < domain->dimension; idim ++ )
     delta_q[idim] = 2*M_PI/domain->prd[idim];
-    
+      
+  // initialize normalization, finite size correction, and changing atom counts
+
+  write_qs();
+
+  natoms_old = atom->natoms;
+  dynamic = group->dynamic[igroup];
+  if (dynamic_user) dynamic = 1;
+  init_norm();
+
+}
+
+
+void ComputeSQ::write_qs()
+{
 
   double qx,qy;
   if (domain->dimension == 2)
@@ -199,29 +192,14 @@ void ComputeSQ::init()
 	}
       }
     }
-
-
-  
-  // initialize normalization, finite size correction, and changing atom counts
-
-  natoms_old = atom->natoms;
-  dynamic = group->dynamic[igroup];
-  if (dynamic_user) dynamic = 1;
-  init_norm();
-
-}
-
-/* ---------------------------------------------------------------------- */
-
-void ComputeSQ::init_list(int /*id*/, NeighList *ptr)
-{
-  list = ptr;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void ComputeSQ::init_norm()
 {
+
+  
   int i,j,m;
 
   // count atoms of each type that are also in group

@@ -29,16 +29,15 @@ class ComputeSQ : public Compute {
   ComputeSQ(class LAMMPS *, int, char **);
   ~ComputeSQ() override;
   void init() override;
-  void init_list(int, class NeighList *) override;
   void compute_array() override;
-
+  
+ protected:
+  virtual void write_qs();
+  
  private:
   int nbin;                // # of sq bins
-  int cutflag;             // user cutoff flag
   int npairs;              // # of sq pairs
   double *delta_q;    // bin width and its inverse
-  double cutoff_user;      // user-specified cutoff
-  double mycutneigh;       // user-specified cutoff + neighbor skin
   int ***sqpair;          // map 2 type pair to sq pair for each histo
   int **nsqpair;          // # of histograms for each type pair
   int *ilo, *ihi, *jlo, *jhi;
@@ -51,7 +50,6 @@ class ComputeSQ : public Compute {
 
   static void callback(int, char *, void *);
 
-  class NeighList *list;    // half neighbor list
   void init_norm();
   bigint natoms_old;
 };
