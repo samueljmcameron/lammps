@@ -13,21 +13,21 @@
 
 #ifdef COMPUTE_CLASS
 // clang-format off
-ComputeStyle(sq,ComputeSQ);
+ComputeStyle(structurefactor,ComputeStructureFactor);
 // clang-format on
 #else
 
-#ifndef LMP_COMPUTE_SQ_H
-#define LMP_COMPUTE_SQ_H
+#ifndef LMP_COMPUTE_STRUCTURE_FACTOR_H
+#define LMP_COMPUTE_STRUCTURE_FACTOR_H
 
 #include "compute.h"
 
 namespace LAMMPS_NS {
 
-class ComputeSQ : public Compute {
+class ComputeStructureFactor : public Compute {
  public:
-  ComputeSQ(class LAMMPS *, int, char **);
-  ~ComputeSQ() override;
+  ComputeStructureFactor(class LAMMPS *, int, char **);
+  ~ComputeStructureFactor() override;
   void init() override;
   void compute_array() override;
   

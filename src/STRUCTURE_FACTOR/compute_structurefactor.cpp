@@ -16,7 +16,7 @@
    Contributing authors: Paul Crozier (SNL), Jeff Greathouse (SNL)
 ------------------------------------------------------------------------- */
 
-#include "compute_sq.h"
+#include "compute_structurefactor.h"
 
 #include "atom.h"
 #include "comm.h"
@@ -36,7 +36,7 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-ComputeSQ::ComputeSQ(LAMMPS *lmp, int narg, char **arg) :
+ComputeStructureFactor::ComputeStructureFactor(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg),
   sqpair(nullptr), nsqpair(nullptr), ilo(nullptr), ihi(nullptr), jlo(nullptr), jhi(nullptr),
   hist(nullptr), histall(nullptr), typecount(nullptr), icount(nullptr), jcount(nullptr),
@@ -122,7 +122,7 @@ ComputeSQ::ComputeSQ(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
-ComputeSQ::~ComputeSQ()
+ComputeStructureFactor::~ComputeStructureFactor()
 {
   memory->destroy(sqpair);
   memory->destroy(nsqpair);
@@ -142,7 +142,7 @@ ComputeSQ::~ComputeSQ()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeSQ::init()
+void ComputeStructureFactor::init()
 {
 
 
@@ -165,7 +165,7 @@ void ComputeSQ::init()
 }
 
 
-void ComputeSQ::write_qs()
+void ComputeStructureFactor::write_qs()
 {
 
   double qx,qy;
@@ -196,7 +196,7 @@ void ComputeSQ::write_qs()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeSQ::init_norm()
+void ComputeStructureFactor::init_norm()
 {
 
   
@@ -240,7 +240,7 @@ void ComputeSQ::init_norm()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeSQ::compute_array()
+void ComputeStructureFactor::compute_array()
 {
 
   int *mask = atom->mask;
@@ -310,9 +310,9 @@ void ComputeSQ::compute_array()
 }
 
 
-void ComputeSQ::callback(int n, char *cbuf, void *ptr)
+void ComputeStructureFactor::callback(int n, char *cbuf, void *ptr)
 {
-  auto sqptr = (ComputeSQ *) ptr;
+  auto sqptr = (ComputeStructureFactor *) ptr;
   auto list = (double *) cbuf;
 
   int groupbit = sqptr->groupbit;
