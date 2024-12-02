@@ -20,38 +20,19 @@ ComputeStyle(structurefactor,ComputeStructureFactor);
 #ifndef LMP_COMPUTE_STRUCTURE_FACTOR_H
 #define LMP_COMPUTE_STRUCTURE_FACTOR_H
 
-#include "compute.h"
+#include "compute_structurefactor_base.h"
 
 namespace LAMMPS_NS {
 
-class ComputeStructureFactor : public Compute {
+class ComputeStructureFactor : public ComputeStructureFactorBase {
  public:
   ComputeStructureFactor(class LAMMPS *, int, char **);
   ~ComputeStructureFactor() override;
-  void init() override;
   void compute_array() override;
   
  protected:
-  virtual void write_qs();
+  void write_qs() override;
   
- private:
-  int nbin;                // # of sq bins
-  int npairs;              // # of sq pairs
-  double *delta_q;    // bin width and its inverse
-  int ***sqpair;          // map 2 type pair to sq pair for each histo
-  int **nsqpair;          // # of histograms for each type pair
-  int *ilo, *ihi, *jlo, *jhi;
-  double **hist;       // histogram bins
-  double **histall;    // summed histogram bins across all procs
-
-  int *typecount;
-  int *icount, *jcount;
-  int *duplicates;
-
-  static void callback(int, char *, void *);
-
-  void init_norm();
-  bigint natoms_old;
 };
 
 }    // namespace LAMMPS_NS
