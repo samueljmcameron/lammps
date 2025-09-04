@@ -31,7 +31,10 @@ class FixPopulationBase : public Fix {
   void unpack_forward_comm(int, int, double *) override;
   double compute_vector(int) override;
   void grow_arrays(int ) override;
-
+  void copy_arrays(int, int, int) override;
+  int pack_exchange(int, double *) override;
+  int unpack_exchange(int, double *) override;
+  
  private:
   bool recycle_from_dead(int);
   void create_new_atoms(const std::vector<int> &);

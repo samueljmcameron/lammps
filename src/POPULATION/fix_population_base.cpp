@@ -194,6 +194,37 @@ void FixPopulationBase::grow_arrays(int nmax)
   array_atom = divdeath_array;
 
 }
+void FixPopulationBase::copy_arrays(int i, int j, int /*delflag*/)
+{
+  divdeath_array[j][0] = divdeath_array[i][0];
+  divdeath_array[j][1] = divdeath_array[i][1];
+}
+
+
+
+/* ----------------------------------------------------------------------
+   pack values in local atom-based array for exchange with another proc
+------------------------------------------------------------------------- */
+
+int FixPopulationBase::pack_exchange(int i, double *buf)
+{
+  buf[0] = divdeath_array[i][0];
+  buf[1] = divdeath_array[i][1];
+  return 2;
+}
+
+/* ----------------------------------------------------------------------
+   unpack values in local atom-based array from exchange with another proc
+------------------------------------------------------------------------- */
+
+int FixPopulationBase::unpack_exchange(int nlocal, double *buf)
+{
+
+  divdeath_array[nlocal][0] = buf[0];
+  divdeath_array[nlocal][1] = buf[1];
+  return 2;
+}
+
 
 /* ----------------------------------------------------------------------
    actually perform the birth and death of atoms.
@@ -277,7 +308,7 @@ void FixPopulationBase::post_integrate()
 
   // now move on to events that create/delete atoms
   
-  create_new_atoms(dividing_from_scratch_atoms); 
+  create_new_atoms(dividing_from_scratch_atoms);
   nalive += total_atoms_from_scratch+total_atoms_recycled-total_atoms_killed;
 
   total_atoms_deleted = 0;
@@ -519,7 +550,7 @@ void FixPopulationBase::divide(int i, int j)
   x[i][0] = cx-dx;
   x[i][1] = cy-dy;
   x[i][2] = cz-dz;
-  
+
   v[j][0] = v[i][0]/2.;
   v[j][1] = v[i][1]/2.;
   v[j][2] = v[i][2]/2.;
@@ -528,7 +559,8 @@ void FixPopulationBase::divide(int i, int j)
   v[i][1] /= 2;
   v[i][2] /= 2;
 
-
+  divdeath_array[j][0] = divdeath_array[i][0];
+  divdeath_array[j][1] = divdeath_array[i][1];
   return;
 }
 

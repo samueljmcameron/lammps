@@ -243,32 +243,38 @@ void FixPopulationSensing::compute_division_and_death_rates()
   firstneigh = list->firstneigh;
 
 
-  // set divdeath_array components to starting values (very heavily plagiarised from force_clear() method of verlet.cpp)
+  // set divdeath_array components to zero (very heavily plagiarised from force_clear() method of verlet.cpp)
   // note that ghost atoms must be included if force->newton = 1
+  size_t nbytes;
   if (neighbor->includegroup == 0) {
+    nbytes = sizeof(double) * nlocal;
+    if (true) nbytes += sizeof(double) * atom->nghost;
 
-    int ntot = atom->nlocal;
-    if (newton) ntot += atom->nghost;
-    for (i = 0; i < ntot; i++) {
-
-      divdeath_array[i][0] = b0[type[i]][type[i]];
-      divdeath_array[i][1] = 0.0;
+    if (nbytes) {
+      memset(&divdeath_array[0][0],0,2*nbytes);
     }
+
+  // neighbor includegroup flag is set
+  // clear force only on initial nfirst particles
+  // if either newton flag is set, also include ghosts
 
   } else {
-    for (i = 0; i < atom->nfirst; i++) {
-      divdeath_array[i][0] = b0[type[i]][type[i]];
-      divdeath_array[i][1] = 0.0;
+    nbytes = sizeof(double) * atom->nfirst;
+
+    if (nbytes) {
+      memset(&divdeath_array[0][0],0,2*nbytes);
     }
-    if (newton) {
-      for (i = atom->nlocal; i < atom->nghost; i++) {
-	divdeath_array[i][0] = b0[type[i]][type[i]];
-	divdeath_array[i][1] = 0.0;
+
+    if (true) {
+      nbytes = sizeof(double) * atom->nghost;
+
+      if (nbytes) {
+        memset(&divdeath_array[nlocal][0],0,2*nbytes);
       }
     }
   }
 
-
+  
   // loop over neighbors of my atoms
 
   for (ii = 0; ii < inum; ii++) {
@@ -291,7 +297,9 @@ void FixPopulationSensing::compute_division_and_death_rates()
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
 
-      
+
+
+
       rsq = delx * delx + dely * dely + delz * delz;
       r_dist = sqrt(rsq);
       jtype = type[j];
@@ -308,10 +316,26 @@ void FixPopulationSensing::compute_division_and_death_rates()
 
   }
 
+
+
+
+  
   // communicate division and death contributions from ghost atoms to other processors
 
   comm->reverse_comm(this);
-  
+
+
+  for (int i = 0; i < atom->nlocal; i++) {
+    itype = type[i];
+    divdeath_array[i][0] += b0[itype][itype];
+
+    if (divdeath_array[i][0] < 0.0)
+      divdeath_array[i][0]  = 0.0;
+    if (divdeath_array[i][1] > d0[itype][itype])
+      divdeath_array[i][1]  = d0[itype][itype];
+  }
+
+
 }
 
 
