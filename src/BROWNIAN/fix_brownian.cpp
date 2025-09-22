@@ -117,13 +117,20 @@ template <int Tp_UNIFORM, int Tp_GAUSS, int Tp_2D> void FixBrownian::integrate_t
         }
       }
 
-      x[i][0] += dx;
+
+
+      double px = x[i][0];
+      double py = x[i][1];
+      double pz = x[i][2];
+      
+      
+      x[i][0] += dx + strain_rate[0]*py*dt;
       v[i][0] = dx / dt;
 
-      x[i][1] += dy;
+      x[i][1] += dy + strain_rate[1]*pz*dt;
       v[i][1] = dy / dt;
 
-      x[i][2] += dz;
+      x[i][2] += dz + strain_rate[2]*px*dt;
       v[i][2] = dz / dt;
     } else if (atom->type[i] != 2)
       printf("atom type %d\n",atom->type[i]);

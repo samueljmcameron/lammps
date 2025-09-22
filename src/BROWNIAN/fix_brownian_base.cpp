@@ -48,6 +48,12 @@ FixBrownianBase::FixBrownianBase(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, n
   final_integrate_flag = 0;
   g2 = 0.0;
 
+
+  strain_rate = new double[3];
+  strain_rate[0] = 0;
+  strain_rate[1] = 0;
+  strain_rate[2] = 0;
+  
   if (narg < 5) error->all(FLERR, "Illegal fix brownian command.");
 
   temp = utils::numeric(FLERR, arg[3], false, lmp);
@@ -177,6 +183,18 @@ FixBrownianBase::FixBrownianBase(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, n
       final_integrate_flag = 1;
       iarg = iarg + 1;
 
+    } else if (strcmp(arg[iarg], "strain_rate") == 0) {
+
+
+      strain_rate[0] = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+      strain_rate[1] = utils::numeric(FLERR, arg[iarg + 2], false, lmp);
+      strain_rate[2] = utils::numeric(FLERR, arg[iarg + 3], false, lmp);
+
+      if (strain_rate[1] > 0 && domain->dimension == 2 ||
+	  strain_rate[2] > 0 && domain->dimension == 2)
+	error->all(FLERR, "Illegal fix brownian command: vyz and vzx cannot be non-zero if 2D simulation.");	
+      iarg = iarg + 4;
+
     } else {
       error->all(FLERR, "Illegal fix brownian command.");
     }
@@ -216,6 +234,7 @@ FixBrownianBase::~FixBrownianBase()
   }
 
   if (dipole_flag) { delete[] dipole_body; }
+  delete[] strain_rate;
   delete rng;
 }
 
