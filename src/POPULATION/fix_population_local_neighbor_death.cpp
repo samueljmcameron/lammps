@@ -15,7 +15,7 @@
    Contributing authors: Sam Cameron
 ------------------------------------------------------------------------- */
 
-#include "fix_population_sensing.h"
+#include "fix_population_local_neighbor_death.h"
 
 #include "atom.h"
 #include "atom_vec.h"
@@ -46,8 +46,8 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixPopulationSensing::FixPopulationSensing(LAMMPS *lmp, int narg, char **arg) :
-  FixPopulationBase(lmp, narg, arg),ncoeff(8)
+FixPopulationLocalNeighborDeath::FixPopulationLocalNeighborDeath(LAMMPS *lmp, int narg, char **arg) :
+  FixPopulationBase(lmp, narg, arg),ncoeff(7)
 {
 
 
@@ -94,7 +94,7 @@ FixPopulationSensing::FixPopulationSensing(LAMMPS *lmp, int narg, char **arg) :
 }
 
 
-FixPopulationSensing::~FixPopulationSensing()
+FixPopulationLocalNeighborDeath::~FixPopulationLocalNeighborDeath()
 {
 
 
@@ -104,7 +104,7 @@ FixPopulationSensing::~FixPopulationSensing()
   memory->destroy(d0);
   memory->destroy(sigma);
   memory->destroy(width);
-  memory->destroy(cnum);    
+  memory->destroy(cg_volume);    
 
 }
 
@@ -115,7 +115,7 @@ FixPopulationSensing::~FixPopulationSensing()
    allocate all arrays
 ------------------------------------------------------------------------- */
 
-void FixPopulationSensing::allocate()
+void FixPopulationLocalNeighborDeath::allocate()
 {
 
   int n = atom->ntypes + 1;
@@ -128,7 +128,7 @@ void FixPopulationSensing::allocate()
   memory->create(b0, n, n, "fix:b0");
   memory->create(sigma, n, n, "fix:sigma");
   memory->create(width, n, n, "fix:width");
-  memory->create(cnum, n, n, "fix:cnum");
+  memory->create(cg_volume, n, n, "fix:cg_volume");
 
 
 
@@ -139,7 +139,7 @@ void FixPopulationSensing::allocate()
       d0[i][j] = 0.0;
       sigma[i][j] = 0.0;
       width[i][j] = 1.0; // 1.0 to avoid divide by zero
-      cnum[i][j] = 1.0;  // 1.0 to avoid divide by zero
+      cg_volume[i][j] = 1.0;  // 1.0 to avoid divide by zero
     }
   }
   
@@ -148,9 +148,10 @@ void FixPopulationSensing::allocate()
 
 
 
-void FixPopulationSensing::init()
+void FixPopulationLocalNeighborDeath::init()
 {
 
+  FixPopulationBase::init();
   
   if (force->pair && cutflag)
     error->all(FLERR,"Fix population/sensing requires a pair style be defined "
@@ -185,12 +186,12 @@ void FixPopulationSensing::init()
 
 
 
-void FixPopulationSensing::init_list(int /*id*/, NeighList *ptr)
+void FixPopulationLocalNeighborDeath::init_list(int /*id*/, NeighList *ptr)
 {
   list = ptr;
 }
 
-void FixPopulationSensing::coeff(char **arg)
+void FixPopulationLocalNeighborDeath::coeff(char **arg)
 {
 
   int ilo, ihi, jlo, jhi;
@@ -201,8 +202,17 @@ void FixPopulationSensing::coeff(char **arg)
   double d0_one = utils::numeric(FLERR, arg[3], false, lmp);
   double sigma_one = utils::numeric(FLERR, arg[4], false, lmp);
   double width_one = utils::numeric(FLERR, arg[5], false, lmp);
-  double cnum_one = utils::numeric(FLERR, arg[6], false, lmp);
+  double cg_volume_one;
 
+  if (domain->dimension == 2)
+    cg_volume_one = M_PI*sigma_one*sigma_one;
+    //cg_volume_one = 2*M_PI*sigma_one*sigma_one;
+    //cg_volume_one = 1.0;
+  else
+    cg_volume_one = 4*M_PI/3.*sigma_one*sigma_one*sigma_one;
+    //cg_volume_one = sqrt(2*M_PI*sigma_one*sigma_one)*sqrt(2*M_PI*sigma_one*sigma_one)*sqrt(2*M_PI*sigma_one*sigma_one);
+    //cg_volume_one = 1.0;
+  
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
     for (int j = MAX(jlo, i); j <= jhi; j++) {
@@ -210,7 +220,7 @@ void FixPopulationSensing::coeff(char **arg)
       d0[i][j] = d0_one;
       sigma[i][j] = sigma_one;
       width[i][j] = width_one;
-      cnum[i][j] = cnum_one;
+      cg_volume[i][j] = cg_volume_one;
       setflag[i][j] = 1;
       count++;
       
@@ -225,7 +235,7 @@ void FixPopulationSensing::coeff(char **arg)
 /* ---------------------------------------------------------------------- */
 
 
-void FixPopulationSensing::compute_division_and_death_rates()
+void FixPopulationLocalNeighborDeath::compute_division_and_death_rates()
 {
 
   int i, j, ii, jj, inum, jnum, itype, jtype;
@@ -301,21 +311,24 @@ void FixPopulationSensing::compute_division_and_death_rates()
 
 
 
-
+      jtype = type[j];
       rsq = delx * delx + dely * dely + delz * delz;
       r_dist = sqrt(rsq);
-      jtype = type[j];
-
-      divdeath_array[i][0] -= b0[itype][jtype]/(1+exp((r_dist-sigma[itype][jtype])/width[itype][jtype]))/cnum[itype][jtype];
-      divdeath_array[i][1] += d0[itype][jtype]/(1+exp((r_dist-sigma[itype][jtype])/width[itype][jtype]))/cnum[itype][jtype];
+      if (rsq < sigma[itype][jtype]) {//force->pair->cutsq[itype][jtype]) {
 
 
-      // only do this bit if half neighbor list is being used (this is the default,
-      //  but child classes of sensing might use a full neighbor list)
-      if (!full_neigh_list) {
-	if (newton || j < nlocal) {
-	  divdeath_array[j][0] -= b0[jtype][itype]/(1+exp((r_dist-sigma[jtype][itype])/width[jtype][itype]))/cnum[jtype][itype];
-	  divdeath_array[j][1] += d0[jtype][itype]/(1+exp((r_dist-sigma[jtype][itype])/width[jtype][itype]))/cnum[jtype][itype];
+	//divdeath_array[i][1] += d0[itype][jtype]/(1+exp((r_dist-sigma[itype][jtype])/width[itype][jtype]))/cg_volume[itype][jtype];
+	//divdeath_array[i][1] += d0[itype][jtype]/cg_volume[itype][jtype]*exp(-rsq/(2*sigma[itype][jtype]*sigma[itype][jtype]));
+	divdeath_array[i][1] += d0[itype][jtype]/cg_volume[itype][jtype];
+	
+	// only do this bit if half neighbor list is being used (this is the default,
+	//  but child classes of sensing might use a full neighbor list)
+	if (!full_neigh_list) {
+	  if (newton || j < nlocal) {
+	    //divdeath_array[j][1] += d0[jtype][itype]/(1+exp((r_dist-sigma[jtype][itype])/width[jtype][itype]))/cg_volume[jtype][itype];
+	    //divdeath_array[j][1] += d0[jtype][itype]/cg_volume[jtype][itype]*exp(-rsq/(2*sigma[jtype][itype]*sigma[jtype][itype]));
+	    divdeath_array[j][1] += d0[jtype][itype]/cg_volume[jtype][itype];
+	  }
 	}
       }
 
@@ -326,7 +339,7 @@ void FixPopulationSensing::compute_division_and_death_rates()
 
 
 
-  
+
   // communicate division and death contributions from ghost atoms to other processors
 
   if (!full_neigh_list) {
@@ -337,18 +350,13 @@ void FixPopulationSensing::compute_division_and_death_rates()
   for (int i = 0; i < atom->nlocal; i++) {
     itype = type[i];
     divdeath_array[i][0] += b0[itype][itype];
-
-    if (divdeath_array[i][0] < 0.0)
-      divdeath_array[i][0]  = 0.0;
-    if (divdeath_array[i][1] > d0[itype][itype])
-      divdeath_array[i][1]  = d0[itype][itype];
+    divdeath_array[i][1] += d0[itype][itype]/cg_volume[itype][itype];
   }
-
 
 }
 
 
-int FixPopulationSensing::pack_reverse_comm(int n, int first, double *buf)
+int FixPopulationLocalNeighborDeath::pack_reverse_comm(int n, int first, double *buf)
 {
   int i, m, last;
 
@@ -364,7 +372,7 @@ int FixPopulationSensing::pack_reverse_comm(int n, int first, double *buf)
 
 /* ---------------------------------------------------------------------- */
 
-void FixPopulationSensing::unpack_reverse_comm(int n, int *list, double *buf)
+void FixPopulationLocalNeighborDeath::unpack_reverse_comm(int n, int *list, double *buf)
 {
   int i, j, m;
 

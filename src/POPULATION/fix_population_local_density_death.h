@@ -13,49 +13,42 @@
 
 #ifdef FIX_CLASS
 // clang-format off
-FixStyle(population/sensing,FixPopulationSensing);
+FixStyle(population/local/density/death,FixPopulationLocalDensityDeath);
 // clang-format on
 #else
 
-#ifndef LMP_FIX_POPULATION_SENSING_H
-#define LMP_FIX_POPULATION_SENSING_H
+#ifndef LMP_FIX_POPULATION_LOCAL_DENSITY_DEATH_H
+#define LMP_FIX_POPULATION_LOCAL_DENSITY_DEATH_H
 
 #include "fix_population_base.h"
 #include <random>
 
 namespace LAMMPS_NS {
 
-class FixPopulationSensing : public FixPopulationBase {
+class FixPopulationLocalDensityDeath : public FixPopulationBase {
  public:
-  FixPopulationSensing(class LAMMPS *, int, char **);
-  ~FixPopulationSensing() override;
-  void init() override;
-  void init_list(int, class NeighList *) override;
+  FixPopulationLocalDensityDeath(class LAMMPS *, int, char **);
+  ~FixPopulationLocalDensityDeath() override;
   
-  int pack_reverse_comm(int, int , double *) override;
-  void unpack_reverse_comm(int, int *, double *) override;
 
  private:
 
   virtual void compute_division_and_death_rates() override;
-  void allocate();
-  void coeff(char **);
 
 
   
-  int **setflag;      // 0/1 = whether each i,j has been set
-  double **cnum;      // expected coordination number for i-j types
-  double **b0;        // birthrate for i-j types
-  double **d0;        // deathrate for i-j types
-  double **sigma;     // effective diameter for i-j types
-  double **width;     // width of sigmoid function for i-j types
+  double b0; 
+  double d0; 
 
-  int cutflag;
-  double cutoff_user;
-  double mycutneigh;       // user-specified cutoff + neighbor skin
 
-  
-  const int ncoeff;
+  double xbinsize,ybinsize,zbinsize;
+  double binvolume;
+
+
+  char *id_density;
+  class ComputeChunkAtom *density;
+
+  std::vector<double> count_local, count_global;
   
   
 protected:

@@ -13,22 +13,22 @@
 
 #ifdef FIX_CLASS
 // clang-format off
-FixStyle(population/sensing,FixPopulationSensing);
+FixStyle(population/local/neighbor/death,FixPopulationLocalNeighborDeath);
 // clang-format on
 #else
 
-#ifndef LMP_FIX_POPULATION_SENSING_H
-#define LMP_FIX_POPULATION_SENSING_H
+#ifndef LMP_FIX_POPULATION_LOCAL_NEIGHBOR_DEATH_H
+#define LMP_FIX_POPULATION_LOCAL_NEIGHBOR_DEATH_H
 
 #include "fix_population_base.h"
 #include <random>
 
 namespace LAMMPS_NS {
 
-class FixPopulationSensing : public FixPopulationBase {
+class FixPopulationLocalNeighborDeath : public FixPopulationBase {
  public:
-  FixPopulationSensing(class LAMMPS *, int, char **);
-  ~FixPopulationSensing() override;
+  FixPopulationLocalNeighborDeath(class LAMMPS *, int, char **);
+  ~FixPopulationLocalNeighborDeath() override;
   void init() override;
   void init_list(int, class NeighList *) override;
   
@@ -44,7 +44,7 @@ class FixPopulationSensing : public FixPopulationBase {
 
   
   int **setflag;      // 0/1 = whether each i,j has been set
-  double **cnum;      // expected coordination number for i-j types
+  double **cg_volume; // coarse-grained volume for local density for i-j types
   double **b0;        // birthrate for i-j types
   double **d0;        // deathrate for i-j types
   double **sigma;     // effective diameter for i-j types
