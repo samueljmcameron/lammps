@@ -165,6 +165,7 @@ void FixPrint::end_of_step()
   input->substitute(copy, work, maxcopy, maxwork, 0);
 
   if (var_print) {
+    ivar_print = input->variable->find(var_print);
     next_print = static_cast<bigint>(input->variable->compute_equal(ivar_print));
     if (next_print <= update->ntimestep)
       error->all(FLERR, "Fix print timestep variable returned a bad timestep: {}", next_print);
